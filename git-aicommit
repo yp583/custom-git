@@ -7,7 +7,7 @@ if [ ! -z "$1" ]
 then
   remoteBranch=$1
 fi
-echo "Showing diff between $remoteBranch origin/$remoteBranch"
+# echo "Showing diff between $remoteBranch origin/$remoteBranch"
 insertions=$(git diff --stat -U3 HEAD^^^ HEAD)
 # deletions=$(git diff --stat -U3 HEAD HEAD^^ | grep -E '^\-')
 # echo "Insertions: $insertions\n\n\n"
@@ -44,5 +44,6 @@ done <<< $insertions
 # done
 
 
-embed_chunk "Hello, world!"
+# embed_chunk "Hello, world!"
+"$(dirname "$0")/test"
 # echo $embedding
