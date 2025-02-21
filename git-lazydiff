@@ -13,6 +13,16 @@ insertions=$(git diff --stat -U3 HEAD^^^ HEAD)
 echo "Insertions: $insertions\n\n\n"
 echo "Awked\n"
 
+embed_chunk() {
+  curl https://api.openai.com/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -d '{
+    "input": "Your text string goes here",
+    "model": "text-embedding-3-small"
+  }'
+}
+
 declare -a chunks
 chunk=""
 while IFS= read -r line; do
@@ -32,10 +42,3 @@ for chunk in "${chunks[@]}"; do
 done
 
 
-# curl https://api.openai.com/v1/embeddings \
-#   -H "Content-Type: application/json" \
-#   -H "Authorization: Bearer $OPENAI_API_KEY" \
-#   -d '{
-#     "input": "Your text string goes here",
-#     "model": "text-embedding-3-small"
-#   }'
