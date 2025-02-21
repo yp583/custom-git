@@ -10,17 +10,18 @@ fi
 echo "Showing diff between $remoteBranch origin/$remoteBranch"
 insertions=$(git diff --stat -U3 HEAD^^^ HEAD)
 # deletions=$(git diff --stat -U3 HEAD HEAD^^ | grep -E '^\-')
-echo "Insertions: $insertions\n\n\n"
+# echo "Insertions: $insertions\n\n\n"
 echo "Awked\n"
 
 embed_chunk() {
-  curl https://api.openai.com/v1/embeddings \
+  embedding=$(curl -s https://api.openai.com/v1/embeddings \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
-  -d '{
-    "input": "Your text string goes here",
-    "model": "text-embedding-3-small"
-  }'
+  -d "{
+    \"input\": \"$1\",
+    \"model\": \"text-embedding-3-small\"
+  }" | jq -r '.data[0].embedding')
+
 }
 
 declare -a chunks
@@ -36,9 +37,12 @@ while IFS= read -r line; do
   fi
 done <<< $insertions
 
-# Print all chunks (optional - you can remove this if you don't need it)
-for chunk in "${chunks[@]}"; do
-  echo -e "Chunk: $chunk"
-done
+# # Print all chunks (optional - you can remove this if you don't need it)
+# for chunk in "${chunks[@]}"; do
+#   embed_chunk "$chunk"
+#   echo "Embedding: $embedding"
+# done
 
 
+embed_chunk "Hello, world!"
+# echo $embedding
