@@ -2,4 +2,6 @@
 .vscode
 node_modules
 tree-sitter*
-pack
+package-lock.json
+package.json
+build

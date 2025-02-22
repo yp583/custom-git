@@ -5,6 +5,17 @@
 // Declare the Python parser (since that's what we're linking against)
 const TSLanguage *tree_sitter_python(void);
 
+
+TSTree *parse_python(const char *source_code) {
+    TSParser *parser = ts_parser_new();
+    ts_parser_set_language(parser, tree_sitter_python());
+    return ts_parser_parse_string(parser, NULL, source_code, strlen(source_code));
+}
+
+void delete_tree(TSTree *tree) {
+    ts_tree_delete(tree);
+}
+
 int main() {
     // Create a parser
     TSParser *parser = ts_parser_new();
