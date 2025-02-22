@@ -1,56 +1,32 @@
-#include <iostream>
-#include <string>
-#include <array>
-#include <memory>
-#define LINE_MAX 128
+#include <string> 
+#include <iostream> 
+#include <regex>
 
 using namespace std;
 
-int main() {
-    string command = "git diff --stat -U3 HEAD^^^ HEAD";
-    FILE *fp;
-    int status;
-    char line[LINE_MAX];
-
-
-    fp = popen("ls *", "r");
-    if (fp == NULL) {
-        cerr << "Error: Failed to execute command" << endl;
-        return 1;
+int main()
+{
+    string line;
+    string output;
+    while (getline(cin, line))
+    {
+        output += line + "\n";
     }
 
-    while (fgets(line, LINE_MAX, fp) != NULL){
-        printf("%s", line);
+    regex re("(@@).+(@@)");
+    sregex_iterator regex_delim = sregex_iterator(output.begin(), output.end(), re);
+    sregex_iterator end = sregex_iterator();
+
+    vector<string> chunks;
+
+    for (sregex_iterator it = regex_delim; it != end; it++) {
+        smatch match = *it;
+        chunks.push_back(match.suffix());
     }
-    
-    status = pclose(fp);
-    if (status == -1) {
-        cerr << "Error: Failed to close pipe" << endl;
-        return 1;
-    } else {
-        if (WIFEXITED(status)) {
-            int exitStatus = WEXITSTATUS(status);
-            if (exitStatus != 0) {
-                cerr << "Command exited with status " << exitStatus << endl;
-                return exitStatus;
-            }
-        } else if (WIFSIGNALED(status)) {
-            cerr << "Command killed by signal " << WTERMSIG(status) << endl;
-            return 1;
-        }
-    }
-    // // Open a pipe to execute the command
-    // unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.c_str(), "r"), pclose);
-    // if (!pipe) {
-    //     cerr << "Error: Failed to execute command" << endl;
-    //     return 1;
+
+    // for (string chunk : chunks) {
+    //     cout << chunk << endl;
     // }
-    
-    // // Read the output
-    // while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-    //     result += buffer.data();
-    // }
-    
-    // cout << result;
-    return 0;
+    cout << chunks.size() << endl;
+
 }

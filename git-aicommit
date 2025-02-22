@@ -24,18 +24,6 @@ embed_chunk() {
 
 }
 
-declare -a chunks
-chunk=""
-while IFS= read -r line; do
-  if [[ $line =~ (@@).+(@@ ) ]]; then
-    if [ ! -z "$chunk" ]; then
-      chunks+=("$chunk")
-    fi
-    chunk=""
-  else
-    chunk="$chunk\n$line"
-  fi
-done <<< $insertions
 
 # # Print all chunks (optional - you can remove this if you don't need it)
 # for chunk in "${chunks[@]}"; do
@@ -45,5 +33,5 @@ done <<< $insertions
 
 
 # embed_chunk "Hello, world!"
-"$(dirname "$0")/test"
+git diff -U3 HEAD^^^ HEAD | "$(dirname "$0")/test"
 # echo $embedding
