@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(YourProjectName)
+project(git_aicommit)
 
 # Download CPM.cmake
 set(CPM_DOWNLOAD_VERSION 0.38.1)
@@ -27,6 +27,12 @@ add_grammar_from_repo(tree-sitter-python
   0.20.4  # Remove the 'v' prefix entirely
 )
 
+add_grammar_from_repo(tree-sitter-cpp
+  https://github.com/tree-sitter/tree-sitter-cpp.git
+  0.23.4  # Remove the 'v' prefix entirely
+)
+
+
 # Link these to your target
 add_executable(git_aicommit.o 
     ast.cpp
@@ -39,6 +45,7 @@ add_executable(git_aicommit.o
 target_link_libraries(git_aicommit.o
     cpp-tree-sitter
     tree-sitter-python
+    tree-sitter-cpp
     ssl
     crypto
 ) 

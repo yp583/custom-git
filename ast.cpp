@@ -16,6 +16,7 @@ using namespace std;
 
 extern "C" {
 TSLanguage* tree_sitter_python();
+TSLanguage* tree_sitter_cpp();
 }
 
 vector<string> chunkNode(const ts::Node& node, const string& text, size_t maxChars) {
@@ -51,9 +52,14 @@ vector<string> chunkNode(const ts::Node& node, const string& text, size_t maxCha
     return newChunks;
 }
 
-ts::Tree codeToTree(const string& code) {
-  ts::Language language = tree_sitter_python();
-  ts::Parser parser{language};
+ts::Tree codeToTree(const string& code, const string& language) {
+  TSLanguage* lang;
+  if (language == "python") {
+    lang = tree_sitter_python();
+  } else if (language == "cpp") {
+    lang = tree_sitter_cpp();
+  }
+  ts::Parser parser{lang};
   return parser.parseString(code);
 }
 
