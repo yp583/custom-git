@@ -5,6 +5,8 @@
 #include <netdb.h> 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <vector>
+#include <fstream>
 
 using namespace std;
 
@@ -73,13 +75,17 @@ class APIConnection {
         start_conn();
       }
 
-      string post(string body) {
+      string post(string body, vector<pair<string, string>> headers) {
         string request = "POST " + this->path + " HTTP/1.1\r\n"; 
         request += "Host: " + this->host + "\r\n"; 
         request += "Connection: close\r\n"; 
-        request += "Content-Type: application/json\r\n"; 
-        request += "Content-Length: " + to_string(body.size()) + "\r\n\r\n"; 
-        request += body; 
+        request += "Content-Length: " + to_string(body.size()) + "\r\n"; 
+
+        for (pair<string, string> header : headers) {
+          request += header.first + ": " + header.second + "\r\n";
+        }
+
+        request += "\r\n" + body; 
     
         SSL_write(this->conn, request.c_str(), request.size());
 
@@ -105,11 +111,28 @@ class APIConnection {
         
 };
  
-int main() { 
-    const char* url = "api.openai.com"; // Replace with your URL 
-    const char* path = "/v1/chat/completions"; // Replace with the specific path if needed 
-    APIConnection openai_api(url, path); 
-    string response = openai_api.post("{\"key\": \"value\"}"); 
-    cout << response << endl; 
-    return 0; 
-} 
+// int main() { 
+//     const char* url = "api.openai.com"; // Replace with your URL 
+//     const char* path = "/v1/embeddings"; // Replace with the specific path if needed 
+//     ifstream env_file("./.env");
+//     string line;
+//     string api_key;
+//     while (getline(env_file, line)) {
+//       if (line.substr(0, 14) == "OPENAI_API_KEY") {
+//           api_key = line.substr(15); //difference from 15 to 14 is because of = sign
+//           break;
+//       }
+//     }
+//     if (api_key.empty()) {
+//         cerr << "Error: OPENAI_API_KEY not found in .env file" << endl;
+//         return 1;
+//     }
+//     APIConnection openai_api(url, path); 
+//     string text = "write a haiku about ai";
+//     string body = "{\"model\": \"text-embedding-3-small\",\"input\": \"" + text + "\"}";
+//     vector<pair<string, string>> headers = {{"Authorization", "Bearer " + api_key}, {"Content-Type", "application/json"}};
+    
+//     string response = openai_api.post(body, headers); 
+//     cout << response << endl;
+//     return 0; 
+// } 
