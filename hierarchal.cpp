@@ -17,8 +17,6 @@ void HierachicalClustering::cluster(vector<vector<float>> data, float distance_t
   // Initialize distance matrix
   vector<vector<float>> dist_mat(data.size(), vector<float>(data.size(), -1));
   
-  // Initialize each point as its own cluster
-  vector<vector<int>> clusters;
   for (int i = 0; i < data.size(); i++) {
     clusters.push_back({i});
   }
