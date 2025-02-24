@@ -33,6 +33,8 @@ add_executable(git_aicommit.o
     main.cpp
     https_api.cpp
     openai_api.cpp
+    hierarchal.cpp
+    utils.cpp
 )
 target_link_libraries(git_aicommit.o
     cpp-tree-sitter

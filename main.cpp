@@ -11,6 +11,7 @@
 #include "ast.h"
 #include "openai_api.h"
 #include "utils.h"
+#include "hierarchal.h"
 
 using namespace std;
 
@@ -71,14 +72,30 @@ int main() {
     embeddings.push_back(response);
   }
 
-  vector<vector<float>> sim_matrix(embeddings.size(), vector<float>(embeddings.size()));
-
-  for (int i = 0; i < embeddings.size(); i++) {
-    for (int j = i + 1; j < embeddings.size(); j++) {
-      sim_matrix[i][j] = cos_sim(embeddings[i], embeddings[j]);
-      cout << i << " " << j << " " << sim_matrix[i][j] << endl;
+  HierachicalClustering hc;
+  hc.cluster(embeddings, 0.02);
+  vector<vector<int>> clusters = hc.get_clusters();
+  for (int i = 0; i < clusters.size(); i++) {
+    cout << "Cluster " << i << ": ";
+    for (int j = 0; j < clusters[i].size(); j++) {
+      int idx = clusters[i][j];
+      if (idx < ins_chunks.size()) {
+        cout << ins_chunks[idx] << endl;
+      } else {
+        cout << del_chunks[idx - ins_chunks.size()] << endl;
+      }
     }
   }
+  
+
+  // vector<vector<float>> sim_matrix(embeddings.size(), vector<float>(embeddings.size()));
+
+  // for (int i = 0; i < embeddings.size(); i++) {
+  //   for (int j = i + 1; j < embeddings.size(); j++) {
+  //     sim_matrix[i][j] = cos_sim(embeddings[i], embeddings[j]);
+  //     cout << i << " " << j << " " << sim_matrix[i][j] << endl;
+  //   }
+  // }
 
   return 0;
 }
