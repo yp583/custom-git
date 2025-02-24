@@ -10,17 +10,11 @@
 
 #include "ast.h"
 #include "openai_api.h"
+#include "utils.h"
 
 using namespace std;
 
-float cos_sim(vector<float> a, vector<float> b) {
-  float dot = 0.0;
-  for (int i = 0; i < a.size(); i++) {
-    dot += a[i] * b[i];
-  }
-  //Since openai embeddings are normalized, the dot product is the cosine similarity
-  return dot; 
-}
+
 
 int main() {
   string line;
