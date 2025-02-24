@@ -28,11 +28,15 @@ add_grammar_from_repo(tree-sitter-python
 )
 
 # Link these to your target
-add_executable(ast 
-    ast.cpp    # Add your source files here
-    # Add any other .cpp files you have
+add_executable(git_aicommit.o 
+    ast.cpp
+    main.cpp
+    https_api.cpp
+    openai_api.cpp
 )
-target_link_libraries(ast
+target_link_libraries(git_aicommit.o
     cpp-tree-sitter
     tree-sitter-python
+    ssl
+    crypto
 ) 

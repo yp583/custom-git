@@ -5,3 +5,5 @@ tree-sitter*
 package-lock.json
 package.json
 build
+*.o
+*.out

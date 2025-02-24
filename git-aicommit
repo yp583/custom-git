@@ -33,5 +33,5 @@ embed_chunk() {
 
 
 # embed_chunk "Hello, world!"
-git diff -U3 HEAD^^^ HEAD | "$(dirname "$0")/test"
+git diff -U3 HEAD^^^ HEAD
 # echo $embedding
