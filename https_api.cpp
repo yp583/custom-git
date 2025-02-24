@@ -70,7 +70,6 @@ APIConnection::APIConnection(string url, string path) {
 string APIConnection::post(string body, vector<pair<string, string>> headers) {
     string request = "POST " + this->path + " HTTP/1.1\r\n"; 
     request += "Host: " + this->host + "\r\n"; 
-    request += "Connection: close\r\n"; 
     request += "Content-Length: " + to_string(body.size()) + "\r\n"; 
 
     for (pair<string, string> header : headers) {
@@ -83,6 +82,7 @@ string APIConnection::post(string body, vector<pair<string, string>> headers) {
 
     string response;
     char buffer[4096]; 
+    int total_bytes = 0;
     while (true) { 
         memset(buffer, 0, sizeof(buffer)); 
         ssize_t bytes_received = SSL_read(this->conn, buffer, sizeof(buffer) - 1); 
@@ -90,6 +90,23 @@ string APIConnection::post(string body, vector<pair<string, string>> headers) {
             break;
         }
         response += buffer;
+        total_bytes += bytes_received;
+        
+        if (response.find("\r\n\r\n") != string::npos) {
+            size_t content_length_pos = response.find("Content-Length: ");
+            if (content_length_pos != string::npos) {
+                size_t content_length_end = response.find("\r\n", content_length_pos);
+                string content_length_str = response.substr(
+                    content_length_pos + 16, 
+                    content_length_end - (content_length_pos + 16)
+                );
+                size_t content_length = stoul(content_length_str);
+                size_t headers_end = response.find("\r\n\r\n") + 4;
+                if (response.length() - headers_end >= content_length) {
+                    break;
+                }
+            }
+        }
     }
     return response;
 }

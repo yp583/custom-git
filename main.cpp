@@ -5,6 +5,8 @@
 #include <regex>
 #include <cpp-tree-sitter.h>
 #include <fstream>
+#include <chrono>
+#include <thread>
 
 #include "ast.h"
 #include "openai_api.h"
@@ -44,7 +46,6 @@ int main() {
 
 
   ifstream env_file("./.env");
-  string line;
   string api_key;
   while (getline(env_file, line)) {
     if (line.substr(0, 14) == "OPENAI_API_KEY") {
@@ -57,7 +58,7 @@ int main() {
     return 1;
   }
   OpenAI_EmbeddingsAPI openai_embeddings_api(api_key);
-
+  cout << "ins_chunks.size(): " << ins_chunks.size() << endl;
   for (int i = 0; i < min(4, (int)ins_chunks.size()); i++) {
     vector<float> response = openai_embeddings_api.post(ins_chunks[i]);
     cout << response.size() << endl;

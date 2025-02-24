@@ -16,8 +16,15 @@ vector<float> OpenAI_EmbeddingsAPI::post(string text) {
         {"Authorization", "Bearer " + this->api_key}, 
         {"Content-Type", "application/json"}
     };
-    string body = "{\"model\": \"text-embedding-3-small\",\"input\": \"" + text + "\"}";
+    
+    json request_body = {
+        {"model", "text-embedding-3-small"},
+        {"input", text}
+    };
+    string body = request_body.dump();
+    cout << "body: " << body << endl;
     string raw_response = this->api_connection.post(body, headers);
+    cout << "raw_response: " << raw_response << endl;
     
     size_t start = raw_response.find("\r\n\r\n") + 4;
     size_t end = raw_response.find("\r\n", start);
@@ -31,11 +38,10 @@ vector<float> OpenAI_EmbeddingsAPI::post(string text) {
 vector<float> OpenAI_EmbeddingsAPI::parse_embedding(const string& response) {
     try {
         json j = json::parse(response);
-        
         vector<float> embedding = j["data"][0]["embedding"].get<vector<float>>();
         return embedding;
     } catch (json::exception& e) {
-        cerr << "JSON parsing error: " << e.what() << endl;
+        cerr << "JSON parsing error with response: " << response << endl;
         return vector<float>();
     }
 }
