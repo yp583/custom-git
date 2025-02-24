@@ -9,5 +9,6 @@ private:
 public:
     HierachicalClustering();
     void cluster(vector<vector<float>> data, float distance_threshold = 0.5);
+    vector<vector<int>> get_clusters();
     ~HierachicalClustering();
 };

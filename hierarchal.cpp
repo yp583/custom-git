@@ -57,7 +57,7 @@ void HierachicalClustering::cluster(vector<vector<float>> data, float distance_t
     if (min_dist > distance_threshold) {
       break;
     }
-    
+
     for (int point : clusters[min_j]) {
       clusters[min_i].push_back(point);
     }
@@ -67,14 +67,18 @@ void HierachicalClustering::cluster(vector<vector<float>> data, float distance_t
 
 HierachicalClustering::~HierachicalClustering() {}
 
-int main() {
-  vector<vector<float>> data = {
-    {0.267261, 0.534522, 0.801784},  // [1,2,3] normalized
-    {0.455842, 0.569802, 0.683763},  // [4,5,6] normalized  
-    {0.487494, 0.650164, 0.582647},  // [7,8,9] normalized
-    {0.577350, 0.577350, 0.577350}   // [1,1,1] normalized
-  };
-  HierachicalClustering hc;
-  hc.cluster(data, 0.02);  // Stop clustering when distance > 0.3
-  return 0;
+vector<vector<int>> HierachicalClustering::get_clusters() {
+  return clusters;
 }
+
+// int main() {
+//   vector<vector<float>> data = {
+//     {0.267261, 0.534522, 0.801784},  // [1,2,3] normalized
+//     {0.455842, 0.569802, 0.683763},  // [4,5,6] normalized  
+//     {0.487494, 0.650164, 0.582647},  // [7,8,9] normalized
+//     {0.577350, 0.577350, 0.577350}   // [1,1,1] normalized
+//   };
+//   HierachicalClustering hc;
+//   hc.cluster(data, 0.02);  // Stop clustering when distance > 0.3
+//   return 0;
+// }
