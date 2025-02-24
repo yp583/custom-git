@@ -9,5 +9,6 @@ class OpenAI_EmbeddingsAPI {
     std::string api_key;
   public:
     OpenAI_EmbeddingsAPI(const string api_key);
-    string post(string text);
+    vector<float> post(string text);
+    vector<float> parse_embedding(const string& response);
 };

@@ -59,8 +59,8 @@ int main() {
   OpenAI_EmbeddingsAPI openai_embeddings_api(api_key);
 
   for (int i = 0; i < min(4, (int)ins_chunks.size()); i++) {
-    string response = openai_embeddings_api.post(ins_chunks[i]);
-    cout << response << endl;
+    vector<float> response = openai_embeddings_api.post(ins_chunks[i]);
+    cout << response.size() << endl;
   }
 
   return 0;
