@@ -67,6 +67,52 @@ APIConnection::APIConnection(string url, string path) {
     start_conn();
 }
 
+void APIConnection::send(string request) {
+    char buffer[4096];
+    memset(buffer, 0, sizeof(buffer));
+    int total_bytes = 0;
+    while(total_bytes < request.size()){
+      memcpy(buffer, request.c_str() + total_bytes, min(sizeof(buffer), request.size() - total_bytes));
+      int bytes_written = SSL_write(this->conn, buffer, min(sizeof(buffer), request.size() - total_bytes));
+      if (bytes_written <= 0) {
+        cerr << "Error writing to socket. Code: " << bytes_written << endl;
+        return;
+      }
+      total_bytes += bytes_written;
+    }
+}
+
+string APIConnection::recieve_length(int n) {
+  string response;
+  char buffer[4096];
+  int total_bytes = 0;
+  while (total_bytes < n) {
+    memset(buffer, 0, sizeof(buffer));
+    ssize_t bytes_received = SSL_read(this->conn, buffer, sizeof(buffer) - 1);
+    total_bytes += bytes_received;
+    response += buffer;
+  }
+  return response;
+}
+string APIConnection::recieve_sentinel(string sentinel) {
+  string response;
+  char buffer; 
+  bool found_sentinel = false;
+
+  while (!found_sentinel) { 
+      ssize_t bytes_received = SSL_read(this->conn, &buffer, 1); 
+      if (bytes_received <= 0) { 
+          break;
+      }
+      response += buffer;
+      
+      if (response.size() >= sentinel.size() && response.substr(response.size() - sentinel.size()) == sentinel) {
+        found_sentinel = true;
+      }
+  }
+  return response;
+}
+
 string APIConnection::post(string body, vector<pair<string, string>> headers) {
     string request = "POST " + this->path + " HTTP/1.1\r\n"; 
     request += "Host: " + this->host + "\r\n"; 
@@ -78,37 +124,13 @@ string APIConnection::post(string body, vector<pair<string, string>> headers) {
 
     request += "\r\n" + body; 
 
-    SSL_write(this->conn, request.c_str(), request.size());
+    send(request);
+    string response = recieve_sentinel("\r\n\r\n");
+    int length_start = response.find("Content-Length: ") + 16;
+    int length_end = response.find("\r\n", length_start);
 
-    string response;
-    char buffer[4096]; 
-    int total_bytes = 0;
-    while (true) { 
-        memset(buffer, 0, sizeof(buffer)); 
-        ssize_t bytes_received = SSL_read(this->conn, buffer, sizeof(buffer) - 1); 
-        if (bytes_received <= 0) { 
-            break;
-        }
-        response += buffer;
-        total_bytes += bytes_received;
-        
-        if (response.find("\r\n\r\n") != string::npos) {
-            size_t content_length_pos = response.find("Content-Length: ");
-            if (content_length_pos != string::npos) {
-                size_t content_length_end = response.find("\r\n", content_length_pos);
-                string content_length_str = response.substr(
-                    content_length_pos + 16, 
-                    content_length_end - (content_length_pos + 16)
-                );
-                size_t content_length = stoul(content_length_str);
-                size_t headers_end = response.find("\r\n\r\n") + 4;
-                if (response.length() - headers_end >= content_length) {
-                    break;
-                }
-            }
-        }
-    }
-    return response;
+    int length = stoi(response.substr(length_start, length_end - length_start));
+    return recieve_length(length);
 }
 
 APIConnection::~APIConnection() {

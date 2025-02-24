@@ -13,6 +13,15 @@
 
 using namespace std;
 
+float cos_sim(vector<float> a, vector<float> b) {
+  float dot = 0.0;
+  for (int i = 0; i < a.size(); i++) {
+    dot += a[i] * b[i];
+  }
+  //Since openai embeddings are normalized, the dot product is the cosine similarity
+  return dot; 
+}
+
 int main() {
   string line;
   string git_diff;
@@ -58,10 +67,23 @@ int main() {
     return 1;
   }
   OpenAI_EmbeddingsAPI openai_embeddings_api(api_key);
-  cout << "ins_chunks.size(): " << ins_chunks.size() << endl;
-  for (int i = 0; i < min(4, (int)ins_chunks.size()); i++) {
-    vector<float> response = openai_embeddings_api.post(ins_chunks[i]);
-    cout << response.size() << endl;
+  vector<vector<float>> embeddings;
+  for (int i = 0; i < ins_chunks.size(); i++) {
+    vector<float> response = openai_embeddings_api.post("ADDED CODE WAS:\n" + ins_chunks[i]);
+    embeddings.push_back(response);
+  }
+  for (int i = 0; i < del_chunks.size(); i++) {
+    vector<float> response = openai_embeddings_api.post("REMOVED CODE WAS:\n" + del_chunks[i]);
+    embeddings.push_back(response);
+  }
+
+  vector<vector<float>> sim_matrix(embeddings.size(), vector<float>(embeddings.size()));
+
+  for (int i = 0; i < embeddings.size(); i++) {
+    for (int j = i + 1; j < embeddings.size(); j++) {
+      sim_matrix[i][j] = cos_sim(embeddings[i], embeddings[j]);
+      cout << i << " " << j << " " << sim_matrix[i][j] << endl;
+    }
   }
 
   return 0;

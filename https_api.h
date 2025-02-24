@@ -14,6 +14,9 @@ private:
 
 public:
     APIConnection(std::string url, std::string path);
+    std::string recieve_length(int n);
+    std::string recieve_sentinel(std::string sentinel);
+    void send(std::string request);
     std::string post(std::string body, std::vector<std::pair<std::string, std::string>> headers);
     ~APIConnection();
 };
