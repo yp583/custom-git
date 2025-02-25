@@ -105,12 +105,15 @@ int main(int argc, char *argv[]) {
     del_chunks.insert(del_chunks.end(), del_code_tree.begin(), del_code_tree.end());
   }
 
-  for (int i = 0; i < ins_chunks.size(); i++) {
-    cout << "Insertion:\n" << ins_chunks[i] << endl;
-  }
-  for (int i = 0; i < del_chunks.size(); i++) {
-    cout << "Deletion:\n" << del_chunks[i] << endl;
-  }
+  // for (int i = 0; i < ins_chunks.size(); i++) {
+  //   cout << "Insertion:\n" << ins_chunks[i] << endl;
+  // }
+  // for (int i = 0; i < del_chunks.size(); i++) {
+  //   cout << "Deletion:\n" << del_chunks[i] << endl;
+  // }
+
+  cout << "Embedding " << ins_chunks.size() << " insertions and " << del_chunks.size() << " deletions" << endl;
+  cout << "Total chunks: " << ins_chunks.size() + del_chunks.size() << endl;
   
   for (int i = 0; i < ins_chunks.size(); i++) {
     vector<float> response = openai_embeddings_api.post( ins_chunks[i]);
@@ -127,6 +130,7 @@ int main(int argc, char *argv[]) {
   if (argc > 1) {
     dist_thresh = stof(argv[1]);
   }
+  cout << "Clustering with distance threshold: " << dist_thresh << endl;
   hc.cluster(embeddings, dist_thresh);
   vector<vector<int>> clusters = hc.get_clusters();
   for (int i = 0; i < clusters.size(); i++) {

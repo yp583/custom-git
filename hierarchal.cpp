@@ -36,10 +36,10 @@ void HierachicalClustering::cluster(vector<vector<float>> data, float distance_t
     // Find closest pair of clusters
     for (int i = 0; i < clusters.size(); i++) {
       for (int j = i + 1; j < clusters.size(); j++) {
-        float cluster_dist = -1;
+        float cluster_dist = numeric_limits<float>::infinity();
         for (int pi : clusters[i]) {
           for (int pj : clusters[j]) {
-            if (cluster_dist == -1 || dist_mat[pi][pj] > cluster_dist) {
+            if (dist_mat[pi][pj] < cluster_dist) {
               cluster_dist = dist_mat[pi][pj];
             }
           }
