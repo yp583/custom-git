@@ -112,34 +112,34 @@ int main(int argc, char *argv[]) {
     cout << "Deletion:\n" << del_chunks[i] << endl;
   }
   
-  // for (int i = 0; i < ins_chunks.size(); i++) {
-  //   vector<float> response = openai_embeddings_api.post( ins_chunks[i]);
-  //   embeddings.push_back(response);
-  // }
-  // for (int i = 0; i < del_chunks.size(); i++) {
-  //   vector<float> response = openai_embeddings_api.post(del_chunks[i]);
-  //   embeddings.push_back(response);
-  // }
+  for (int i = 0; i < ins_chunks.size(); i++) {
+    vector<float> response = openai_embeddings_api.post( ins_chunks[i]);
+    embeddings.push_back(response);
+  }
+  for (int i = 0; i < del_chunks.size(); i++) {
+    vector<float> response = openai_embeddings_api.post(del_chunks[i]);
+    embeddings.push_back(response);
+  }
 
-  // HierachicalClustering hc;
+  HierachicalClustering hc;
 
-  // float dist_thresh = 0.5;
-  // if (argc > 1) {
-  //   dist_thresh = stof(argv[1]);
-  // }
-  // hc.cluster(embeddings, dist_thresh);
-  // vector<vector<int>> clusters = hc.get_clusters();
-  // for (int i = 0; i < clusters.size(); i++) {
-  //   cout << "Cluster " << i << ": " << endl;
-  //   for (int j = 0; j < clusters[i].size(); j++) {
-  //     int idx = clusters[i][j];
-  //     if (idx < ins_chunks.size()) {
-  //       cout << "Insertion: " << ins_chunks[idx] << endl;
-  //     } else {
-  //       cout << "Deletion: " << del_chunks[idx - ins_chunks.size()] << endl;
-  //     }
-  //   }
-  // }
+  float dist_thresh = 0.5;
+  if (argc > 1) {
+    dist_thresh = stof(argv[1]);
+  }
+  hc.cluster(embeddings, dist_thresh);
+  vector<vector<int>> clusters = hc.get_clusters();
+  for (int i = 0; i < clusters.size(); i++) {
+    cout << "Cluster " << i << ": " << endl;
+    for (int j = 0; j < clusters[i].size(); j++) {
+      int idx = clusters[i][j];
+      if (idx < ins_chunks.size()) {
+        cout << "Insertion: " << ins_chunks[idx] << endl;
+      } else {
+        cout << "Deletion: " << del_chunks[idx - ins_chunks.size()] << endl;
+      }
+    }
+  }
   
 
   // vector<vector<float>> sim_matrix(embeddings.size(), vector<float>(embeddings.size()));
