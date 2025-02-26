@@ -13,6 +13,13 @@
 #include "utils.h"
 #include "hierarchal.h"
 
+struct Chunk {
+  string code;
+  vector<float> embedding;
+  string file;
+  int line_number;
+};
+
 using namespace std;
 
 
