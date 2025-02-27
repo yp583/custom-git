@@ -7,3 +7,5 @@ package.json
 build
 *.o
 *.out
+
+*.patch
