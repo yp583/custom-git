@@ -1,19 +1,6 @@
-diff --git a/gittest.txt b/gittest.txt
-index 0839846..a12b63c 100644
---- a/gittest.txt
-+++ b/gittest.txt
-@@ -1,2 +1,11 @@
- line 1
--line 2
-\ No newline at end of file
-+line 2
-+line 3
-+line 4
-+line 5
-+line 6
-+line 7
-+line 8
-+line 9
-+line 10
-+line 11
-\ No newline at end of file
+diff --git a/example.txt b/example.txt
+index 0123456..789abcd 100644
+--- a/example.txt
++++ b/example.txt
+@@ -10,1 +10,1 @@
++line 1
