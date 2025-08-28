@@ -54,14 +54,14 @@ string OpenAI_ChatAPI::generate_commit_message(const string& code_changes) {
         {"messages", {
             {
                 {"role", "system"},
-                {"content", "You are a git commit message generator. Generate a short, concise commit message (2-4 words) that describes the code changes. Use conventional commit style when appropriate (feat:, fix:, docs:, etc.). Return ONLY the commit message, no quotes or explanations."}
+                {"content", "You are a git commit message generator. Analyze the code changes and generate a concise commit message that describes what was actually modified, added, or fixed in the code. Use conventional commit style (feat:, fix:, refactor:, docs:, etc.). Focus on the technical changes, not meta-commentary. Return ONLY the commit message, no quotes or explanations. Examples: 'feat: add HTTP chunked encoding support', 'fix: handle SSL connection errors', 'refactor: extract JSON parsing logic'."}
             },
             {
                 {"role", "user"},
                 {"content", "Generate a commit message for these code changes:\n" + code_changes}
             }
         }},
-        {"max_tokens", 20},
+        {"max_tokens", 50},
         {"temperature", 0.3}
     };
 
