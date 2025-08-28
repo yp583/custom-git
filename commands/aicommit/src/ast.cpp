@@ -17,6 +17,10 @@ using namespace std;
 extern "C" {
 TSLanguage* tree_sitter_python();
 TSLanguage* tree_sitter_cpp();
+TSLanguage* tree_sitter_java();
+TSLanguage* tree_sitter_javascript();
+TSLanguage* tree_sitter_typescript();
+TSLanguage* tree_sitter_go();
 }
 
 vector<string> chunkNode(const ts::Node& node, const string& text, size_t maxChars) {
@@ -58,9 +62,47 @@ ts::Tree codeToTree(const string& code, const string& language) {
     lang = tree_sitter_python();
   } else if (language == "cpp") {
     lang = tree_sitter_cpp();
+  } else if (language == "java") {
+    lang = tree_sitter_java();
+  } else if (language == "javascript") {
+    lang = tree_sitter_javascript();
+  } else if (language == "typescript") {
+    lang = tree_sitter_typescript();
+  } else if (language == "go") {
+    lang = tree_sitter_go();
+  } else {
+    // Default to C++ for unknown languages
+    lang = tree_sitter_cpp();
   }
   ts::Parser parser{lang};
   return parser.parseString(code);
+}
+
+string detectLanguageFromPath(const string& filepath) {
+  // Find the last dot for file extension
+  size_t lastDot = filepath.find_last_of(".");
+  if (lastDot == string::npos) {
+    return "cpp"; // Default fallback
+  }
+  
+  string extension = filepath.substr(lastDot);
+  
+  // Map file extensions to languages
+  if (extension == ".py") {
+    return "python";
+  } else if (extension == ".cpp" || extension == ".c" || extension == ".h" || extension == ".hpp") {
+    return "cpp";
+  } else if (extension == ".java") {
+    return "java";
+  } else if (extension == ".js" || extension == ".jsx") {
+    return "javascript";
+  } else if (extension == ".ts" || extension == ".tsx") {
+    return "typescript";
+  } else if (extension == ".go") {
+    return "go";
+  } else {
+    return "cpp"; // Default fallback
+  }
 }
 
 

@@ -36,6 +36,33 @@ add_grammar_from_repo(tree-sitter-cpp
   0.23.4  # Remove the 'v' prefix entirely
 )
 
+add_grammar_from_repo(tree-sitter-java
+  https://github.com/tree-sitter/tree-sitter-java.git
+  0.23.0
+)
+
+add_grammar_from_repo(tree-sitter-javascript
+  https://github.com/tree-sitter/tree-sitter-javascript.git
+  0.23.0
+)
+
+# TypeScript grammar has a special structure with typescript and tsx subdirs  
+CPMAddPackage(
+  NAME tree-sitter-typescript
+  GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-typescript.git
+  GIT_TAG v0.20.6
+)
+
+add_library(tree-sitter-typescript STATIC
+  ${tree-sitter-typescript_SOURCE_DIR}/typescript/src/parser.c
+  ${tree-sitter-typescript_SOURCE_DIR}/typescript/src/scanner.c
+)
+
+add_grammar_from_repo(tree-sitter-go
+  https://github.com/tree-sitter/tree-sitter-go.git
+  0.23.0
+)
+
 # Add nlohmann/json
 CPMAddPackage(
   NAME nlohmann_json
@@ -59,6 +86,10 @@ target_link_libraries(git_aicommit.o
     cpp-tree-sitter
     tree-sitter-python
     tree-sitter-cpp
+    tree-sitter-java
+    tree-sitter-javascript
+    tree-sitter-typescript
+    tree-sitter-go
     nlohmann_json::nlohmann_json
     OpenSSL::SSL
     OpenSSL::Crypto

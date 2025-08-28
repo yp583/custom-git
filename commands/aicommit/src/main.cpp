@@ -19,6 +19,14 @@ struct Chunk {
   vector<float> embedding;
   string file;
   int line_number;
+  string language;
+};
+
+struct DiffFile {
+  string filepath;
+  string language;
+  string insertions;
+  string deletions;
 };
 
 using namespace std;
@@ -45,73 +53,74 @@ int main(int argc, char *argv[]) {
 
   OpenAI_EmbeddingsAPI openai_embeddings_api(api_key);
   vector<vector<float>> embeddings;
-  vector<string> git_diff_lines;
   
-  regex chunk_header_regex("(@@).+(@@)");
-  sregex_iterator diff_header_iter = sregex_iterator(git_diff.begin(), git_diff.end(), chunk_header_regex);
-  sregex_iterator diff_header_end = sregex_iterator();
-  smatch header_match;
-
-  vector<string> diff_chunks;
-  string chunk;
-  string new_file_diff_header = "diff --git";
-  bool in_diff_header = false;
-  int line_count = 0;
+  // Parse git diff to extract file-specific changes
+  vector<DiffFile> diff_files;
+  DiffFile current_file;
+  bool in_file = false;
+  bool in_chunk = false;
+  
+  regex diff_header_regex("^diff --git a/(.*) b/(.*)");
+  regex chunk_header_regex("^@@.*@@");
+  regex ins_regex("^\\+(?!\\+)(.*)");
+  regex del_regex("^\\-(?!\\-)(.*)");
+  
   while (getline(cin, line)) {
-
-    if (line.substr(0, new_file_diff_header.length()) == new_file_diff_header) {
-      in_diff_header = true;
-      if (!chunk.empty()) {
-        diff_chunks.push_back(chunk);
+    smatch match;
+    
+    // Check for new file header
+    if (regex_match(line, match, diff_header_regex)) {
+      // Save previous file if exists
+      if (in_file) {
+        diff_files.push_back(current_file);
       }
-      chunk = "";
+      
+      // Start new file
+      current_file = DiffFile();
+      current_file.filepath = match[2]; // Use 'b/' path (after changes)
+      current_file.language = detectLanguageFromPath(current_file.filepath);
+      in_file = true;
+      in_chunk = false;
+      continue;
     }
-    else if (in_diff_header && regex_search(line, header_match, chunk_header_regex)) {
-      if (!chunk.empty()) {
-        diff_chunks.push_back(chunk);
+    
+    // Check for chunk header (@@)
+    if (in_file && regex_match(line, chunk_header_regex)) {
+      in_chunk = true;
+      continue;
+    }
+    
+    // Process diff lines if we're in a chunk
+    if (in_file && in_chunk) {
+      if (regex_match(line, match, ins_regex)) {
+        current_file.insertions += match[1].str() + "\n";
+      } else if (regex_match(line, match, del_regex)) {
+        current_file.deletions += match[1].str() + "\n";
       }
-      line = header_match.suffix();
-      chunk = "";
-      in_diff_header = false;
-    }
-    if (!in_diff_header) {
-      chunk += line + "\n";
     }
   }
-  diff_chunks.push_back(chunk);
-  regex ins_regex("\\n\\+(?!\\+)[^\\n]+");
-  regex del_regex("\\n\\-(?!\\-)[^\\n]+");
-  sregex_iterator end = sregex_iterator();
+  
+  // Don't forget the last file
+  if (in_file) {
+    diff_files.push_back(current_file);
+  }
 
+  // Process each file with language-specific parsing
   vector<string> ins_chunks;
   vector<string> del_chunks;
-
-  for (string diff_chunk : diff_chunks) {
-    sregex_iterator ins_iter = sregex_iterator(diff_chunk.begin(), diff_chunk.end(), ins_regex);
-    sregex_iterator del_iter = sregex_iterator(diff_chunk.begin(), diff_chunk.end(), del_regex);
-
-
-    string insertions;
-    string deletions;
-
-    for (sregex_iterator it = ins_iter; it != end; it++) {
-        smatch match = *it;
-        string match_str = match.str().substr(2);
-        insertions += match_str + "\n";
+  
+  for (const DiffFile& file : diff_files) {
+    if (!file.insertions.empty()) {
+      ts::Tree ins_tree = codeToTree(file.insertions, file.language);
+      vector<string> ins_code_tree = chunkNode(ins_tree.getRootNode(), file.insertions);
+      ins_chunks.insert(ins_chunks.end(), ins_code_tree.begin(), ins_code_tree.end());
     }
-    for (sregex_iterator it = del_iter; it != end; it++) {
-        smatch match = *it;
-        string match_str = match.str().substr(2);
-        deletions += match_str + "\n";
+    
+    if (!file.deletions.empty()) {
+      ts::Tree del_tree = codeToTree(file.deletions, file.language);
+      vector<string> del_code_tree = chunkNode(del_tree.getRootNode(), file.deletions);
+      del_chunks.insert(del_chunks.end(), del_code_tree.begin(), del_code_tree.end());
     }
-
-    ts::Tree ins_tree = codeToTree(insertions, "cpp");
-    ts::Tree del_tree = codeToTree(deletions, "cpp");
-
-    vector<string> ins_code_tree = chunkNode(ins_tree.getRootNode(), insertions);
-    vector<string> del_code_tree = chunkNode(del_tree.getRootNode(), deletions);
-    ins_chunks.insert(ins_chunks.end(), ins_code_tree.begin(), ins_code_tree.end());
-    del_chunks.insert(del_chunks.end(), del_code_tree.begin(), del_code_tree.end());
   }
 
   // for (int i = 0; i < ins_chunks.size(); i++) {
