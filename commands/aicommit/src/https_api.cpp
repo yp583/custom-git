@@ -172,8 +172,12 @@ string APIConnection::recieve_chunked() {
         
         // If chunk size is 0, we're done
         if (chunk_size == 0) {
-            // Read final \r\n
-            recieve_sentinel("\r\n");
+            // Read final \r\n (may be empty)
+            try {
+                recieve_sentinel("\r\n");
+            } catch (...) {
+                // Ignore errors reading final chunk terminator
+            }
             break;
         }
         
