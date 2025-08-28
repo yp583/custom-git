@@ -14,3 +14,5 @@ Update: Testing the new workflow
 - Added chunked encoding support
 - Removed emojis from output
 - Now supports proper AI commit messages
+
+#Testing chunking again
