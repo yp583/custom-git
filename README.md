@@ -23,21 +23,28 @@ A collection of custom git commands that extend Git's functionality with AI-powe
 
 ## Available Commands
 
-### `git aicommit` - AI-Powered Diff Analysis
-Analyzes git diffs using AI embeddings and hierarchical clustering to group similar code changes together.
+### `git aicommit` - Smart AI Commit Tool
+A complete commit workflow tool that stages changes, analyzes them using AI, and creates commits automatically.
 
 **Features:**
-- Parses git diffs to extract code insertions and deletions
-- Uses tree-sitter for semantic code parsing
-- Generates OpenAI embeddings for each code chunk
-- Clusters similar changes using hierarchical clustering
-- Configurable similarity threshold
+- Automatically stages all changes (`git add .`)
+- Analyzes staged changes using tree-sitter semantic parsing
+- Clusters similar changes using AI embeddings and hierarchical clustering
+- Generates commit messages using OpenAI Chat API
+- Creates commits with AI-generated messages
+- Fallback to simple commit if AI APIs fail
 
 **Usage:**
 ```bash
-git aicommit          # Default threshold (0.5)
-git aicommit 0.3      # Custom threshold (0.0-1.0)
+git aicommit          # Stage all changes and create smart commits (default threshold 0.5)
+git aicommit 0.3      # Use custom similarity threshold (0.0-1.0)
 ```
+
+**Workflow:**
+1. Stages all changes in working directory
+2. Extracts and clusters code changes by similarity
+3. Generates descriptive commit messages for each cluster
+4. Creates commits automatically
 
 **Requirements:**
 - OpenAI API key (set in `.env` file: `OPENAI_API_KEY=your_key_here`)
