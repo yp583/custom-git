@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(git_aicommit)
 
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # Download CPM.cmake
 set(CPM_DOWNLOAD_VERSION 0.38.1)
 set(CPM_DOWNLOAD_LOCATION "${CMAKE_BINARY_DIR}/cmake/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
@@ -18,7 +22,7 @@ include(${CPM_DOWNLOAD_LOCATION})
 CPMAddPackage(
   NAME cpp-tree-sitter
   GIT_REPOSITORY https://github.com/nsumner/cpp-tree-sitter.git
-  GIT_TAG v0.0.1
+  GIT_TAG v0.0.2
 )
 
 # Add the Python grammar (fix the version specification)
@@ -32,20 +36,30 @@ add_grammar_from_repo(tree-sitter-cpp
   0.23.4  # Remove the 'v' prefix entirely
 )
 
+# Add nlohmann/json
+CPMAddPackage(
+  NAME nlohmann_json
+  VERSION 3.11.3
+  GITHUB_REPOSITORY nlohmann/json
+)
+
+# Find OpenSSL
+find_package(OpenSSL REQUIRED)
 
 # Link these to your target
 add_executable(git_aicommit.o 
-    ast.cpp
-    main.cpp
-    https_api.cpp
-    openai_api.cpp
-    hierarchal.cpp
-    utils.cpp
+    src/ast.cpp
+    src/main.cpp
+    src/https_api.cpp
+    src/openai_api.cpp
+    src/hierarchal.cpp
+    src/utils.cpp
 )
 target_link_libraries(git_aicommit.o
     cpp-tree-sitter
     tree-sitter-python
     tree-sitter-cpp
-    ssl
-    crypto
+    nlohmann_json::nlohmann_json
+    OpenSSL::SSL
+    OpenSSL::Crypto
 ) 

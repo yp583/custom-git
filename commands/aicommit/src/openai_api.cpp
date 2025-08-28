@@ -39,6 +39,56 @@ vector<float> OpenAI_EmbeddingsAPI::parse_embedding(const string& response) {
     }
 }
 
+// OpenAI Chat API Implementation
+OpenAI_ChatAPI::OpenAI_ChatAPI(const string api_key)
+    : api_connection("api.openai.com", "/v1/chat/completions"), api_key(api_key) {}
+
+string OpenAI_ChatAPI::generate_commit_message(const string& code_changes) {
+    const vector<pair<string, string>> headers = {
+        {"Authorization", "Bearer " + this->api_key},
+        {"Content-Type", "application/json"}
+    };
+
+    json request_body = {
+        {"model", "gpt-3.5-turbo"},
+        {"messages", {
+            {
+                {"role", "system"},
+                {"content", "You are a git commit message generator. Generate a short, concise commit message (2-4 words) that describes the code changes. Use conventional commit style when appropriate (feat:, fix:, docs:, etc.). Return ONLY the commit message, no quotes or explanations."}
+            },
+            {
+                {"role", "user"},
+                {"content", "Generate a commit message for these code changes:\n" + code_changes}
+            }
+        }},
+        {"max_tokens", 20},
+        {"temperature", 0.3}
+    };
+
+    string body = request_body.dump();
+    string raw_response = this->api_connection.post(body, headers);
+    
+    return this->parse_chat_response(raw_response);
+}
+
+string OpenAI_ChatAPI::parse_chat_response(const string& response) {
+    try {
+        json j = json::parse(response);
+        string message = j["choices"][0]["message"]["content"].get<string>();
+        
+        // Trim whitespace and remove quotes if present
+        size_t start = message.find_first_not_of(" \t\n\r\"");
+        size_t end = message.find_last_not_of(" \t\n\r\"");
+        
+        if (start == string::npos) return "update code";
+        
+        return message.substr(start, end - start + 1);
+    } catch (json::exception& e) {
+        cout << "Chat JSON parsing error with response: " << response << endl;
+        return "update code"; // fallback message
+    }
+}
+
 // int main() { 
 //     ifstream env_file("./.env");
 //     string line;

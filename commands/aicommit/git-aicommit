@@ -1,0 +1,113 @@
+#!/bin/bash
+
+# Smart AI Commit Tool
+# Stages changes, clusters them, generates commit messages, and creates commits
+
+set -e  # Exit on any error
+
+# Default distance threshold
+DISTANCE_THRESHOLD=0.5
+
+# Get distance threshold from command line argument
+if [ ! -z "$1" ]; then
+  DISTANCE_THRESHOLD=$1
+fi
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Try to find the executable in multiple locations
+EXECUTABLE=""
+if [ -f "$SCRIPT_DIR/build/git_aicommit.o" ]; then
+  EXECUTABLE="$SCRIPT_DIR/build/git_aicommit.o"
+elif [ -f "$(dirname "$0")/git_aicommit.o" ]; then
+  EXECUTABLE="$(dirname "$0")/git_aicommit.o"
+elif [ -f "$HOME/bin/git_aicommit.o" ]; then
+  EXECUTABLE="$HOME/bin/git_aicommit.o"
+fi
+
+# Check if executable exists
+if [ -z "$EXECUTABLE" ] || [ ! -f "$EXECUTABLE" ]; then
+  echo "Error: git_aicommit.o not found. Please build the project first:"
+  echo "Run: ./scripts/setup.sh"
+  exit 1
+fi
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  echo "Error: Not in a git repository"
+  exit 1
+fi
+
+# Check if jq is available for JSON parsing
+if ! command -v jq &> /dev/null; then
+  echo "Error: jq is required for JSON parsing. Please install jq:"
+  echo "brew install jq"
+  exit 1
+fi
+
+echo "🔍 Staging all changes..."
+git add .
+
+# Check if there are staged changes
+if git diff --cached --quiet; then
+  echo "No staged changes to commit."
+  exit 0
+fi
+
+echo "📊 Analyzing staged changes..."
+
+# Generate git diff for staged changes and pipe to the clustering tool
+JSON_OUTPUT=$(git diff --cached | "$EXECUTABLE" "$DISTANCE_THRESHOLD" 2>/dev/null)
+
+if [ $? -ne 0 ] || [ -z "$JSON_OUTPUT" ]; then
+  echo "Error: Failed to analyze changes"
+  exit 1
+fi
+
+# Parse JSON output and create commits
+echo "🤖 Generating commits..."
+
+# Get number of clusters
+CLUSTER_COUNT=$(echo "$JSON_OUTPUT" | jq length)
+
+if [ "$CLUSTER_COUNT" -eq 0 ]; then
+  echo "No clusters generated. Creating single commit..."
+  COMMIT_MSG="update code"
+  git commit -m "$COMMIT_MSG"
+  echo "✅ Created commit: $COMMIT_MSG"
+  exit 0
+fi
+
+echo "Found $CLUSTER_COUNT clusters"
+
+# For each cluster, create a commit
+for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
+  COMMIT_MESSAGE=$(echo "$JSON_OUTPUT" | jq -r ".[$i].commit_message")
+  
+  echo "📝 Cluster $((i + 1)): $COMMIT_MESSAGE"
+  
+  # Create temp files to stage specific changes for this cluster
+  TEMP_PATCH="/tmp/git_aicommit_cluster_$i.patch"
+  
+  # Extract changes for this cluster and create a patch
+  echo "$JSON_OUTPUT" | jq -r ".[$i].changes[] | 
+    if .type == \"insertion\" then 
+      \"+\" + .code 
+    else 
+      \"-\" + .code 
+    end" > "$TEMP_PATCH"
+  
+  # For now, we'll commit all staged changes with the first cluster's message
+  # In a more sophisticated version, we'd selectively stage changes per cluster
+  if [ $i -eq 0 ]; then
+    git commit -m "$COMMIT_MESSAGE"
+    echo "✅ Created commit: $COMMIT_MESSAGE"
+    break
+  fi
+done
+
+# Clean up temp files
+rm -f /tmp/git_aicommit_cluster_*.patch
+
+echo "🎉 Smart commit complete!"

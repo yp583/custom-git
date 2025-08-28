@@ -7,6 +7,7 @@
 #include <fstream>
 #include <chrono>
 #include <thread>
+#include <nlohmann/json.hpp>
 
 #include "ast.h"
 #include "openai_api.h"
@@ -21,6 +22,7 @@ struct Chunk {
 };
 
 using namespace std;
+using json = nlohmann::json;
 
 
 
@@ -119,8 +121,8 @@ int main(int argc, char *argv[]) {
   //   cout << "Deletion:\n" << del_chunks[i] << endl;
   // }
 
-  cout << "Embedding " << ins_chunks.size() << " insertions and " << del_chunks.size() << " deletions" << endl;
-  cout << "Total chunks: " << ins_chunks.size() + del_chunks.size() << endl;
+  // Generate embeddings (progress to stderr so it doesn't interfere with JSON output)
+  cerr << "Embedding " << ins_chunks.size() << " insertions and " << del_chunks.size() << " deletions" << endl;
   
   for (int i = 0; i < ins_chunks.size(); i++) {
     vector<float> response = openai_embeddings_api.post( ins_chunks[i]);
@@ -137,20 +139,49 @@ int main(int argc, char *argv[]) {
   if (argc > 1) {
     dist_thresh = stof(argv[1]);
   }
-  cout << "Clustering with distance threshold: " << dist_thresh << endl;
+  // Clustering
   hc.cluster(embeddings, dist_thresh);
   vector<vector<int>> clusters = hc.get_clusters();
+  
+  // Generate commit messages using ChatAPI
+  OpenAI_ChatAPI openai_chat_api(api_key);
+  
+  // Output JSON for shell script to parse
+  json output_json = json::array();
+  
   for (int i = 0; i < clusters.size(); i++) {
-    cout << "Cluster " << i << ": " << endl;
+    json cluster_json;
+    cluster_json["cluster_id"] = i;
+    
+    string combined_changes;
+    json changes = json::array();
+    
     for (int j = 0; j < clusters[i].size(); j++) {
       int idx = clusters[i][j];
+      json change_json;
+      
       if (idx < ins_chunks.size()) {
-        cout << "Insertion: " << ins_chunks[idx] << endl;
+        change_json["type"] = "insertion";
+        change_json["code"] = ins_chunks[idx];
+        combined_changes += "+" + ins_chunks[idx] + "\n";
       } else {
-        cout << "Deletion: " << del_chunks[idx - ins_chunks.size()] << endl;
+        change_json["type"] = "deletion";
+        change_json["code"] = del_chunks[idx - ins_chunks.size()];
+        combined_changes += "-" + del_chunks[idx - ins_chunks.size()] + "\n";
       }
+      changes.push_back(change_json);
     }
+    
+    cluster_json["changes"] = changes;
+    
+    // Generate commit message for this cluster
+    string commit_message = openai_chat_api.generate_commit_message(combined_changes);
+    cluster_json["commit_message"] = commit_message;
+    
+    output_json.push_back(cluster_json);
   }
+  
+  cout << output_json.dump() << endl;
   
 
   // vector<vector<float>> sim_matrix(embeddings.size(), vector<float>(embeddings.size()));
