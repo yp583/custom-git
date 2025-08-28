@@ -46,7 +46,7 @@ if ! command -v jq &> /dev/null; then
   exit 1
 fi
 
-echo "🔍 Staging all changes..."
+echo "Staging all changes..."
 git add .
 
 # Check if there are staged changes
@@ -55,7 +55,7 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
-echo "📊 Analyzing staged changes..."
+echo "Analyzing staged changes..."
 
 # Generate git diff for staged changes and pipe to the clustering tool
 JSON_OUTPUT=$(git diff --cached | "$EXECUTABLE" "$DISTANCE_THRESHOLD" 2>&1)
@@ -67,14 +67,14 @@ JSON_ONLY=$(echo "$JSON_OUTPUT" | head -1)
 if ! echo "$JSON_ONLY" | jq empty 2>/dev/null; then
   echo "Warning: AI commit message generation failed, using fallback"
   git commit -m "update code"
-  echo "✅ Created fallback commit"
+  echo "Created fallback commit"
   exit 0
 fi
 
 JSON_OUTPUT="$JSON_ONLY"
 
 # Parse JSON output and create commits
-echo "🤖 Generating commits..."
+echo "Generating commits..."
 
 # Get number of clusters
 CLUSTER_COUNT=$(echo "$JSON_OUTPUT" | jq length)
@@ -83,7 +83,7 @@ if [ "$CLUSTER_COUNT" -eq 0 ]; then
   echo "No clusters generated. Creating single commit..."
   COMMIT_MSG="update code"
   git commit -m "$COMMIT_MSG"
-  echo "✅ Created commit: $COMMIT_MSG"
+  echo "Created commit: $COMMIT_MSG"
   exit 0
 fi
 
@@ -110,7 +110,7 @@ for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
   # In a more sophisticated version, we'd selectively stage changes per cluster
   if [ $i -eq 0 ]; then
     git commit -m "$COMMIT_MESSAGE"
-    echo "✅ Created commit: $COMMIT_MESSAGE"
+    echo "Created commit: $COMMIT_MESSAGE"
     break
   fi
 done
@@ -118,4 +118,4 @@ done
 # Clean up temp files
 rm -f /tmp/git_aicommit_cluster_*.patch
 
-echo "🎉 Smart commit complete!"
+echo "Smart commit complete!"

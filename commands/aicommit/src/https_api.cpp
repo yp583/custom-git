@@ -125,36 +125,67 @@ string APIConnection::post(string body, vector<pair<string, string>> headers) {
     request += "\r\n" + body; 
 
     send(request);
-    string response = recieve_sentinel("\r\n\r\n");
+    string response_headers = recieve_sentinel("\r\n\r\n");
     
-    // Check if Content-Length header exists
-    size_t length_header_pos = response.find("Content-Length: ");
-    if (length_header_pos == string::npos) {
-        cerr << "Error: No Content-Length header found in response" << endl;
-        cerr << "Response headers: " << response << endl;
-        return "";
+    // Check if using chunked transfer encoding
+    if (response_headers.find("Transfer-Encoding: chunked") != string::npos) {
+        return recieve_chunked();
     }
     
-    int length_start = length_header_pos + 16;
-    int length_end = response.find("\r\n", length_start);
-    
-    if (length_end == string::npos) {
-        cerr << "Error: Malformed Content-Length header" << endl;
-        return "";
+    // Try Content-Length method
+    size_t length_header_pos = response_headers.find("Content-Length: ");
+    if (length_header_pos != string::npos) {
+        int length_start = length_header_pos + 16;
+        int length_end = response_headers.find("\r\n", length_start);
+        
+        if (length_end != string::npos) {
+            string length_str = response_headers.substr(length_start, length_end - length_start);
+            try {
+                int length = stoi(length_str);
+                return recieve_length(length);
+            } catch (const exception& e) {
+                // Fall through to error handling
+            }
+        }
     }
+    
+    cerr << "Error: Unsupported response encoding" << endl;
+    cerr << "Response headers: " << response_headers << endl;
+    return "";
+}
 
-    string length_str = response.substr(length_start, length_end - length_start);
+string APIConnection::recieve_chunked() {
+    string result;
     
-    try {
-        int length = stoi(length_str);
-        return recieve_length(length);
-    } catch (const std::invalid_argument& e) {
-        cerr << "Error: Invalid Content-Length value: '" << length_str << "'" << endl;
-        return "";
-    } catch (const std::out_of_range& e) {
-        cerr << "Error: Content-Length value out of range: '" << length_str << "'" << endl;
-        return "";
+    while (true) {
+        // Read chunk size (hex number followed by \r\n)
+        string chunk_size_line = recieve_sentinel("\r\n");
+        
+        // Parse hex chunk size
+        int chunk_size;
+        try {
+            chunk_size = stoi(chunk_size_line, nullptr, 16);  // Parse as hex
+        } catch (const exception& e) {
+            cerr << "Error parsing chunk size: " << chunk_size_line << endl;
+            break;
+        }
+        
+        // If chunk size is 0, we're done
+        if (chunk_size == 0) {
+            // Read final \r\n
+            recieve_sentinel("\r\n");
+            break;
+        }
+        
+        // Read the chunk data
+        string chunk_data = recieve_length(chunk_size);
+        result += chunk_data;
+        
+        // Read trailing \r\n after chunk data
+        recieve_sentinel("\r\n");
     }
+    
+    return result;
 }
 
 APIConnection::~APIConnection() {
