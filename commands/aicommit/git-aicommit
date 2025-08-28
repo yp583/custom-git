@@ -58,12 +58,20 @@ fi
 echo "📊 Analyzing staged changes..."
 
 # Generate git diff for staged changes and pipe to the clustering tool
-JSON_OUTPUT=$(git diff --cached | "$EXECUTABLE" "$DISTANCE_THRESHOLD" 2>/dev/null)
+JSON_OUTPUT=$(git diff --cached | "$EXECUTABLE" "$DISTANCE_THRESHOLD" 2>&1)
 
-if [ $? -ne 0 ] || [ -z "$JSON_OUTPUT" ]; then
-  echo "Error: Failed to analyze changes"
-  exit 1
+# Extract just the JSON part (everything before any error messages)
+JSON_ONLY=$(echo "$JSON_OUTPUT" | head -1)
+
+# Check if we got valid JSON
+if ! echo "$JSON_ONLY" | jq empty 2>/dev/null; then
+  echo "Warning: AI commit message generation failed, using fallback"
+  git commit -m "update code"
+  echo "✅ Created fallback commit"
+  exit 0
 fi
+
+JSON_OUTPUT="$JSON_ONLY"
 
 # Parse JSON output and create commits
 echo "🤖 Generating commits..."

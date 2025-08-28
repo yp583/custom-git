@@ -126,11 +126,35 @@ string APIConnection::post(string body, vector<pair<string, string>> headers) {
 
     send(request);
     string response = recieve_sentinel("\r\n\r\n");
-    int length_start = response.find("Content-Length: ") + 16;
+    
+    // Check if Content-Length header exists
+    size_t length_header_pos = response.find("Content-Length: ");
+    if (length_header_pos == string::npos) {
+        cerr << "Error: No Content-Length header found in response" << endl;
+        cerr << "Response headers: " << response << endl;
+        return "";
+    }
+    
+    int length_start = length_header_pos + 16;
     int length_end = response.find("\r\n", length_start);
+    
+    if (length_end == string::npos) {
+        cerr << "Error: Malformed Content-Length header" << endl;
+        return "";
+    }
 
-    int length = stoi(response.substr(length_start, length_end - length_start));
-    return recieve_length(length);
+    string length_str = response.substr(length_start, length_end - length_start);
+    
+    try {
+        int length = stoi(length_str);
+        return recieve_length(length);
+    } catch (const std::invalid_argument& e) {
+        cerr << "Error: Invalid Content-Length value: '" << length_str << "'" << endl;
+        return "";
+    } catch (const std::out_of_range& e) {
+        cerr << "Error: Content-Length value out of range: '" << length_str << "'" << endl;
+        return "";
+    }
 }
 
 APIConnection::~APIConnection() {

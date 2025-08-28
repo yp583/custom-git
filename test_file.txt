@@ -6,3 +6,8 @@ Feature: Added smart commit functionality
 - Clusters similar changes  
 - Generates commit messages using AI
 - Creates commits automatically
+
+Update: Testing the new workflow
+- Fixed error handling in HTTPS API
+- Added robust JSON output
+- Enhanced commit message generation
