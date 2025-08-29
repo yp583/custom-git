@@ -13,6 +13,70 @@
 
 using namespace std;
 
+// Character-based chunking for non-code files
+vector<string> chunkByCharacters(const string& text, size_t maxChars, size_t overlap) {
+    vector<string> chunks;
+    
+    if (text.empty()) {
+        return chunks;
+    }
+    
+    // If text is smaller than max chunk size, return as single chunk
+    if (text.length() <= maxChars) {
+        chunks.push_back(text);
+        return chunks;
+    }
+    
+    size_t start = 0;
+    while (start < text.length()) {
+        size_t chunkSize = min(maxChars, text.length() - start);
+        string chunk = text.substr(start, chunkSize);
+        
+        // Try to break at natural boundaries (newlines, spaces) when possible
+        if (start + chunkSize < text.length() && chunkSize == maxChars) {
+            // Look for a good breaking point within the last 10% of the chunk
+            size_t searchStart = static_cast<size_t>(chunkSize * 0.9);
+            size_t newlinePos = chunk.find_last_of('\n', searchStart);
+            size_t spacePos = chunk.find_last_of(' ', searchStart);
+            
+            size_t breakPos = string::npos;
+            if (newlinePos != string::npos) {
+                breakPos = newlinePos + 1; // Include the newline
+            } else if (spacePos != string::npos) {
+                breakPos = spacePos + 1; // Include the space
+            }
+            
+            if (breakPos != string::npos && breakPos > chunkSize / 2) {
+                chunk = chunk.substr(0, breakPos);
+                chunkSize = breakPos;
+            }
+        }
+        
+        chunks.push_back(chunk);
+        
+        // Move start position with overlap
+        if (start + chunkSize >= text.length()) {
+            break;
+        }
+        start += chunkSize - overlap;
+    }
+    
+    return chunks;
+}
+
+// Check if file extension indicates a text/non-code file
+bool isTextFile(const string& filepath) {
+    size_t lastDot = filepath.find_last_of(".");
+    if (lastDot == string::npos) {
+        return false;
+    }
+    
+    string extension = filepath.substr(lastDot);
+    return (extension == ".txt" || extension == ".md" || extension == ".json" || 
+            extension == ".xml" || extension == ".yaml" || extension == ".yml" ||
+            extension == ".csv" || extension == ".log" || extension == ".conf" ||
+            extension == ".ini" || extension == ".toml" || extension == ".rst");
+}
 
 extern "C" {
 TSLanguage* tree_sitter_python();

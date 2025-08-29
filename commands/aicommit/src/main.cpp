@@ -125,16 +125,29 @@ int main(int argc, char *argv[]) {
   vector<string> del_chunks;
   
   for (const DiffFile& file : diff_files) {
+    // Check if this is a text file that should use character-based chunking
+    bool useCharacterChunking = isTextFile(file.filepath);
+    
     if (!file.insertions.empty()) {
-      ts::Tree ins_tree = codeToTree(file.insertions, file.language);
-      vector<string> ins_code_tree = chunkNode(ins_tree.getRootNode(), file.insertions);
-      ins_chunks.insert(ins_chunks.end(), ins_code_tree.begin(), ins_code_tree.end());
+      if (useCharacterChunking) {
+        vector<string> ins_text_chunks = chunkByCharacters(file.insertions);
+        ins_chunks.insert(ins_chunks.end(), ins_text_chunks.begin(), ins_text_chunks.end());
+      } else {
+        ts::Tree ins_tree = codeToTree(file.insertions, file.language);
+        vector<string> ins_code_tree = chunkNode(ins_tree.getRootNode(), file.insertions);
+        ins_chunks.insert(ins_chunks.end(), ins_code_tree.begin(), ins_code_tree.end());
+      }
     }
     
     if (!file.deletions.empty()) {
-      ts::Tree del_tree = codeToTree(file.deletions, file.language);
-      vector<string> del_code_tree = chunkNode(del_tree.getRootNode(), file.deletions);
-      del_chunks.insert(del_chunks.end(), del_code_tree.begin(), del_code_tree.end());
+      if (useCharacterChunking) {
+        vector<string> del_text_chunks = chunkByCharacters(file.deletions);
+        del_chunks.insert(del_chunks.end(), del_text_chunks.begin(), del_text_chunks.end());
+      } else {
+        ts::Tree del_tree = codeToTree(file.deletions, file.language);
+        vector<string> del_code_tree = chunkNode(del_tree.getRootNode(), file.deletions);
+        del_chunks.insert(del_chunks.end(), del_code_tree.begin(), del_code_tree.end());
+      }
     }
   }
 
