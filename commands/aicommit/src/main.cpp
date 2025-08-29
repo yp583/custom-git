@@ -9,6 +9,7 @@
 #include <thread>
 #include <nlohmann/json.hpp>
 #include <cstdlib>
+#include <set>
 
 #include "ast.h"
 #include "openai_api.h"
@@ -121,8 +122,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Process each file with language-specific parsing
-  vector<string> ins_chunks;
-  vector<string> del_chunks;
+  vector<Chunk> all_chunks;
   
   for (const DiffFile& file : diff_files) {
     // Check if this is a text file that should use character-based chunking
@@ -131,22 +131,50 @@ int main(int argc, char *argv[]) {
     if (!file.insertions.empty()) {
       if (useCharacterChunking) {
         vector<string> ins_text_chunks = chunkByCharacters(file.insertions);
-        ins_chunks.insert(ins_chunks.end(), ins_text_chunks.begin(), ins_text_chunks.end());
+        for (const string& chunk_code : ins_text_chunks) {
+          Chunk chunk;
+          chunk.code = chunk_code;
+          chunk.file = file.filepath;
+          chunk.language = file.language;
+          chunk.line_number = 0; // Not applicable for text chunks
+          all_chunks.push_back(chunk);
+        }
       } else {
         ts::Tree ins_tree = codeToTree(file.insertions, file.language);
         vector<string> ins_code_tree = chunkNode(ins_tree.getRootNode(), file.insertions);
-        ins_chunks.insert(ins_chunks.end(), ins_code_tree.begin(), ins_code_tree.end());
+        for (const string& chunk_code : ins_code_tree) {
+          Chunk chunk;
+          chunk.code = chunk_code;
+          chunk.file = file.filepath;
+          chunk.language = file.language;
+          chunk.line_number = 0; // Could be enhanced to track actual line numbers
+          all_chunks.push_back(chunk);
+        }
       }
     }
     
     if (!file.deletions.empty()) {
       if (useCharacterChunking) {
         vector<string> del_text_chunks = chunkByCharacters(file.deletions);
-        del_chunks.insert(del_chunks.end(), del_text_chunks.begin(), del_text_chunks.end());
+        for (const string& chunk_code : del_text_chunks) {
+          Chunk chunk;
+          chunk.code = chunk_code;
+          chunk.file = file.filepath;
+          chunk.language = file.language;
+          chunk.line_number = 0; // Not applicable for text chunks
+          all_chunks.push_back(chunk);
+        }
       } else {
         ts::Tree del_tree = codeToTree(file.deletions, file.language);
         vector<string> del_code_tree = chunkNode(del_tree.getRootNode(), file.deletions);
-        del_chunks.insert(del_chunks.end(), del_code_tree.begin(), del_code_tree.end());
+        for (const string& chunk_code : del_code_tree) {
+          Chunk chunk;
+          chunk.code = chunk_code;
+          chunk.file = file.filepath;
+          chunk.language = file.language;
+          chunk.line_number = 0; // Could be enhanced to track actual line numbers
+          all_chunks.push_back(chunk);
+        }
       }
     }
   }
@@ -159,14 +187,11 @@ int main(int argc, char *argv[]) {
   // }
 
   // Generate embeddings (progress to stderr so it doesn't interfere with JSON output)
-  cerr << "Embedding " << ins_chunks.size() << " insertions and " << del_chunks.size() << " deletions" << endl;
+  cerr << "Embedding " << all_chunks.size() << " chunks" << endl;
   
-  for (int i = 0; i < ins_chunks.size(); i++) {
-    vector<float> response = openai_embeddings_api.post( ins_chunks[i]);
-    embeddings.push_back(response);
-  }
-  for (int i = 0; i < del_chunks.size(); i++) {
-    vector<float> response = openai_embeddings_api.post(del_chunks[i]);
+  for (int i = 0; i < all_chunks.size(); i++) {
+    vector<float> response = openai_embeddings_api.post(all_chunks[i].code);
+    all_chunks[i].embedding = response;
     embeddings.push_back(response);
   }
 
@@ -192,27 +217,39 @@ int main(int argc, char *argv[]) {
     
     string combined_changes;
     json changes = json::array();
+    set<string> affected_files; // Track unique files in this cluster
     
     for (int j = 0; j < clusters[i].size(); j++) {
       int idx = clusters[i][j];
       json change_json;
       
-      if (idx < ins_chunks.size()) {
-        change_json["type"] = "insertion";
-        change_json["code"] = ins_chunks[idx];
-        combined_changes += "+" + ins_chunks[idx] + "\n";
-      } else {
-        change_json["type"] = "deletion";
-        change_json["code"] = del_chunks[idx - ins_chunks.size()];
-        combined_changes += "-" + del_chunks[idx - ins_chunks.size()] + "\n";
-      }
+      const Chunk& chunk = all_chunks[idx];
+      change_json["type"] = "change"; // Simplified since we don't distinguish insertion/deletion at chunk level
+      change_json["code"] = chunk.code;
+      change_json["file"] = chunk.file;
+      change_json["language"] = chunk.language;
+      
+      // Add file to affected files set
+      affected_files.insert(chunk.file);
+      
+      // Format for AI with file context
+      combined_changes += "File: " + chunk.file + "\n";
+      combined_changes += chunk.code + "\n\n";
+      
       changes.push_back(change_json);
     }
     
     cluster_json["changes"] = changes;
+    cluster_json["affected_files"] = vector<string>(affected_files.begin(), affected_files.end());
     
-    // Generate commit message for this cluster
-    string commit_message = openai_chat_api.generate_commit_message(combined_changes);
+    // Generate commit message with file context
+    string file_context = "Files changed: ";
+    for (const string& file : affected_files) {
+      file_context += file + ", ";
+    }
+    file_context = file_context.substr(0, file_context.length() - 2); // Remove trailing comma
+    
+    string commit_message = openai_chat_api.generate_commit_message(file_context + "\n\nChanges:\n" + combined_changes);
     cluster_json["commit_message"] = commit_message;
     
     output_json.push_back(cluster_json);
