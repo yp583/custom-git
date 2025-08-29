@@ -46,17 +46,11 @@ add_grammar_from_repo(tree-sitter-javascript
   0.23.0
 )
 
-# TypeScript grammar has a special structure with typescript and tsx subdirs  
-CPMAddPackage(
-  NAME tree-sitter-typescript
-  GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-typescript.git
-  GIT_TAG v0.20.6
-)
-
-add_library(tree-sitter-typescript STATIC
-  ${tree-sitter-typescript_SOURCE_DIR}/typescript/src/parser.c
-  ${tree-sitter-typescript_SOURCE_DIR}/typescript/src/scanner.c
-)
+# TypeScript support temporarily disabled due to build issues
+# add_grammar_from_repo(tree-sitter-typescript
+#   https://github.com/tree-sitter/tree-sitter-typescript.git
+#   0.20.4
+# )
 
 add_grammar_from_repo(tree-sitter-go
   https://github.com/tree-sitter/tree-sitter-go.git
@@ -88,7 +82,7 @@ target_link_libraries(git_aicommit.o
     tree-sitter-cpp
     tree-sitter-java
     tree-sitter-javascript
-    tree-sitter-typescript
+    # tree-sitter-typescript  # Temporarily disabled
     tree-sitter-go
     nlohmann_json::nlohmann_json
     OpenSSL::SSL

@@ -19,7 +19,7 @@ TSLanguage* tree_sitter_python();
 TSLanguage* tree_sitter_cpp();
 TSLanguage* tree_sitter_java();
 TSLanguage* tree_sitter_javascript();
-TSLanguage* tree_sitter_typescript();
+// TSLanguage* tree_sitter_typescript();  // Temporarily disabled
 TSLanguage* tree_sitter_go();
 }
 
@@ -67,7 +67,8 @@ ts::Tree codeToTree(const string& code, const string& language) {
   } else if (language == "javascript") {
     lang = tree_sitter_javascript();
   } else if (language == "typescript") {
-    lang = tree_sitter_typescript();
+    // TypeScript support temporarily disabled, fallback to JavaScript
+    lang = tree_sitter_javascript();
   } else if (language == "go") {
     lang = tree_sitter_go();
   } else {

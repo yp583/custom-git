@@ -8,6 +8,7 @@
 #include <chrono>
 #include <thread>
 #include <nlohmann/json.hpp>
+#include <cstdlib>
 
 #include "ast.h"
 #include "openai_api.h"
@@ -38,16 +39,30 @@ int main(int argc, char *argv[]) {
   string line;
   string git_diff;
 
-  ifstream env_file("./.env");
   string api_key;
-  while (getline(env_file, line)) {
-    if (line.substr(0, 14) == "OPENAI_API_KEY") {
-      api_key = line.substr(15);
-      break;
+  
+  // First try to read from .env file
+  ifstream env_file("./.env");
+  if (env_file.is_open()) {
+    while (getline(env_file, line)) {
+      if (line.substr(0, 14) == "OPENAI_API_KEY") {
+        api_key = line.substr(15);
+        break;
+      }
+    }
+    env_file.close();
+  }
+  
+  // If not found in .env file, try environment variable
+  if (api_key.empty()) {
+    const char* env_api_key = getenv("OPENAI_API_KEY");
+    if (env_api_key != nullptr) {
+      api_key = string(env_api_key);
     }
   }
+  
   if (api_key.empty()) {
-    cerr << "Error: OPENAI_API_KEY not found in .env file" << endl;
+    cerr << "Error: OPENAI_API_KEY not found in .env file or environment variables" << endl;
     return 1;
   }
 

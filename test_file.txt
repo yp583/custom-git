@@ -15,4 +15,4 @@ Update: Testing the new workflow
 - Removed emojis from output
 - Now supports proper AI commit messages
 
-#Testing chunking again
+#Testing chunking again# Test change for debugging
