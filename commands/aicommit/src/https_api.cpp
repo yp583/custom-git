@@ -161,12 +161,22 @@ string APIConnection::recieve_chunked() {
         // Read chunk size (hex number followed by \r\n)
         string chunk_size_line = recieve_sentinel("\r\n");
         
+        // Remove the \r\n sentinel from the chunk size line
+        if (chunk_size_line.size() >= 2) {
+            chunk_size_line = chunk_size_line.substr(0, chunk_size_line.size() - 2);
+        }
+        
+        // Skip empty lines
+        if (chunk_size_line.empty()) {
+            continue;
+        }
+        
         // Parse hex chunk size
         int chunk_size;
         try {
             chunk_size = stoi(chunk_size_line, nullptr, 16);  // Parse as hex
         } catch (const exception& e) {
-            cerr << "Error parsing chunk size: " << chunk_size_line << endl;
+            cerr << "Error parsing chunk size: '" << chunk_size_line << "'" << endl;
             break;
         }
         
