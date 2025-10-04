@@ -63,8 +63,7 @@ custom-git/
 ├── scripts/           # Setup and build scripts
 │   ├── setup.sh      # Full installation script
 │   └── build_all.sh  # Build all commands (dev)
-├── README.md
-└── CLAUDE.md         # Development notes
+└── README.md
 ```
 
 ## Development
