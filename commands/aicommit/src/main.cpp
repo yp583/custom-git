@@ -22,6 +22,7 @@ struct Chunk {
   string file;
   int line_number;
   string language;
+  string type; // "insertion" or "deletion"
 };
 
 struct DiffFile {
@@ -150,6 +151,7 @@ int main(int argc, char *argv[]) {
           chunk.file = file.filepath;
           chunk.language = file.language;
           chunk.line_number = 0; // Not applicable for text chunks
+          chunk.type = "insertion";
           all_chunks.push_back(chunk);
         }
       } else {
@@ -161,6 +163,7 @@ int main(int argc, char *argv[]) {
           chunk.file = file.filepath;
           chunk.language = file.language;
           chunk.line_number = 0; // Could be enhanced to track actual line numbers
+          chunk.type = "insertion";
           all_chunks.push_back(chunk);
         }
       }
@@ -175,6 +178,7 @@ int main(int argc, char *argv[]) {
           chunk.file = file.filepath;
           chunk.language = file.language;
           chunk.line_number = 0; // Not applicable for text chunks
+          chunk.type = "deletion";
           all_chunks.push_back(chunk);
         }
       } else {
@@ -186,6 +190,7 @@ int main(int argc, char *argv[]) {
           chunk.file = file.filepath;
           chunk.language = file.language;
           chunk.line_number = 0; // Could be enhanced to track actual line numbers
+          chunk.type = "deletion";
           all_chunks.push_back(chunk);
         }
       }
@@ -237,7 +242,7 @@ int main(int argc, char *argv[]) {
       json change_json;
       
       const Chunk& chunk = all_chunks[idx];
-      change_json["type"] = "change"; // Simplified since we don't distinguish insertion/deletion at chunk level
+      change_json["type"] = chunk.type; // "insertion" or "deletion"
       change_json["code"] = chunk.code;
       change_json["file"] = chunk.file;
       change_json["language"] = chunk.language;
@@ -246,8 +251,12 @@ int main(int argc, char *argv[]) {
       affected_files.insert(chunk.file);
       
       // Format for AI with file context
-      combined_changes += "File: " + chunk.file + "\n";
-      combined_changes += chunk.code + "\n\n";
+      combined_changes += "File: " + chunk.file + " (" + chunk.type + ")\n";
+      if (chunk.type == "insertion") {
+        combined_changes += "+" + chunk.code + "\n\n";
+      } else {
+        combined_changes += "-" + chunk.code + "\n\n";
+      }
       
       changes.push_back(change_json);
     }
