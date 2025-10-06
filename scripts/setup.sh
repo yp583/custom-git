@@ -5,7 +5,7 @@
 
 set -e  # Exit on any error
 
-echo "🚀 Setting up Custom Git Commands..."
+echo "Setting up Custom Git Commands..."
 
 # Get the root directory of the repo
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -13,7 +13,7 @@ BIN_DIR="$HOME/bin"
 
 # Create ~/bin directory if it doesn't exist
 if [ ! -d "$BIN_DIR" ]; then
-    echo "📁 Creating $BIN_DIR directory..."
+    echo "Creating $BIN_DIR directory..."
     mkdir -p "$BIN_DIR"
 fi
 
@@ -22,10 +22,10 @@ build_command() {
     local cmd_name=$1
     local cmd_dir="$REPO_ROOT/commands/$cmd_name"
     
-    echo "🔨 Building $cmd_name..."
-    
+    echo "Building $cmd_name..."
+
     if [ ! -d "$cmd_dir" ]; then
-        echo "❌ Command directory $cmd_dir not found"
+        echo "ERROR: Command directory $cmd_dir not found"
         return 1
     fi
     
@@ -34,34 +34,34 @@ build_command() {
     # Create build directory and build
     mkdir -p build
     cd build
-    cmake .. || { echo "❌ CMake configuration failed for $cmd_name"; return 1; }
-    make || { echo "❌ Build failed for $cmd_name"; return 1; }
-    
+    cmake .. || { echo "ERROR: CMake configuration failed for $cmd_name"; return 1; }
+    make || { echo "ERROR: Build failed for $cmd_name"; return 1; }
+
     # Copy executable to ~/bin
     if [ -f "git_${cmd_name}.o" ]; then
-        echo "📦 Installing git_${cmd_name}.o to $BIN_DIR..."
+        echo "Installing git_${cmd_name}.o to $BIN_DIR..."
         cp "git_${cmd_name}.o" "$BIN_DIR/"
         chmod +x "$BIN_DIR/git_${cmd_name}.o"
     else
-        echo "❌ Executable git_${cmd_name}.o not found"
+        echo "ERROR: Executable git_${cmd_name}.o not found"
         return 1
     fi
-    
+
     # Copy git script to ~/bin
     if [ -f "../git-$cmd_name" ]; then
-        echo "📦 Installing git-$cmd_name to $BIN_DIR..."
+        echo "Installing git-$cmd_name to $BIN_DIR..."
         cp "../git-$cmd_name" "$BIN_DIR/"
         chmod +x "$BIN_DIR/git-$cmd_name"
     else
-        echo "❌ Script git-$cmd_name not found"
+        echo "ERROR: Script git-$cmd_name not found"
         return 1
     fi
-    
-    echo "✅ $cmd_name installed successfully"
+
+    echo "SUCCESS: $cmd_name installed successfully"
 }
 
 # Build all commands in the commands directory
-echo "🔍 Discovering commands..."
+echo "Discovering commands..."
 for cmd_dir in "$REPO_ROOT/commands"/*; do
     if [ -d "$cmd_dir" ]; then
         cmd_name=$(basename "$cmd_dir")
@@ -83,31 +83,31 @@ add_to_path() {
             shell_config="$HOME/.bash_profile"
         fi
     else
-        echo "⚠️  Unknown shell: $SHELL"
+        echo "WARNING: Unknown shell: $SHELL"
         echo "Please manually add $BIN_DIR to your PATH"
         return 1
     fi
     
     # Check if PATH already contains ~/bin
     if echo "$PATH" | grep -q "$BIN_DIR"; then
-        echo "✅ $BIN_DIR is already in your PATH"
+        echo "SUCCESS: $BIN_DIR is already in your PATH"
         return 0
     fi
     
     # Add to shell config
-    echo "📝 Adding $BIN_DIR to PATH in $shell_config..."
+    echo "Adding $BIN_DIR to PATH in $shell_config..."
     echo "" >> "$shell_config"
     echo "# Added by custom-git setup script" >> "$shell_config"
     echo "export PATH=\"\$HOME/bin:\$PATH\"" >> "$shell_config"
     
-    echo "✅ PATH updated. Please restart your terminal or run:"
+    echo "SUCCESS: PATH updated. Please restart your terminal or run:"
     echo "   source $shell_config"
 }
 
 add_to_path
 
 echo ""
-echo "🎉 Setup complete!"
+echo "Setup complete!"
 echo ""
 echo "Available commands:"
 for cmd_dir in "$REPO_ROOT/commands"/*; do

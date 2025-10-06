@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 Git AICommit Installation Script${NC}"
+echo -e "${BLUE}Git AICommit Installation Script${NC}"
 echo
 
 # Get the directory where this script is located
@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
 
 # Build the project first
-echo -e "${YELLOW}📦 Building git aicommit...${NC}"
+echo -e "${YELLOW}Building git aicommit...${NC}"
 cd "$PROJECT_ROOT/commands/aicommit"
 
 if [ ! -d "build" ]; then
@@ -31,25 +31,25 @@ cd build
 cmake .. && make -j4
 
 if [ ! -f "git_aicommit.o" ]; then
-    echo -e "${RED}❌ Build failed: executable not found${NC}"
+    echo -e "${RED} Build failed: executable not found${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Build successful!${NC}"
+echo -e "${GREEN} Build successful!${NC}"
 
 # Create ~/bin directory if it doesn't exist
 BIN_DIR="$HOME/bin"
 if [ ! -d "$BIN_DIR" ]; then
-    echo -e "${YELLOW}📁 Creating ~/bin directory...${NC}"
+    echo -e "${YELLOW} Creating ~/bin directory...${NC}"
     mkdir -p "$BIN_DIR"
 fi
 
 # Copy the executable to ~/bin
-echo -e "${YELLOW}📋 Installing executable to ~/bin...${NC}"
+echo -e "${YELLOW}Installing executable to ~/bin...${NC}"
 cp "$PROJECT_ROOT/commands/aicommit/build/git_aicommit.o" "$BIN_DIR/"
 
 # Create the git-aicommit wrapper script
-echo -e "${YELLOW}📝 Creating git-aicommit wrapper script...${NC}"
+echo -e "${YELLOW}Creating git-aicommit wrapper script...${NC}"
 cat > "$BIN_DIR/git-aicommit" << 'EOF'
 #!/bin/bash
 
@@ -136,7 +136,7 @@ echo "Found $CLUSTER_COUNT clusters"
 for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
   COMMIT_MESSAGE=$(echo "$JSON_OUTPUT" | jq -r ".[$i].commit_message")
   
-  echo "📝 Cluster $((i + 1)): $COMMIT_MESSAGE"
+  echo "Cluster $((i + 1)): $COMMIT_MESSAGE"
   
   # Create temp files to stage specific changes for this cluster
   TEMP_PATCH="/tmp/git_aicommit_cluster_$i.patch"
@@ -170,7 +170,7 @@ chmod +x "$BIN_DIR/git-aicommit"
 # Check if ~/bin is in PATH
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     echo
-    echo -e "${YELLOW}⚠️  ~/bin is not in your PATH${NC}"
+    echo -e "${YELLOW}WARNING: ~/bin is not in your PATH${NC}"
     echo -e "${BLUE}Add this line to your shell configuration file:${NC}"
     echo -e "${GREEN}export PATH=\"\$HOME/bin:\$PATH\"${NC}"
     echo
@@ -179,17 +179,17 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     echo
 fi
 
-echo -e "${GREEN}✅ Installation complete!${NC}"
+echo -e "${GREEN}Installation complete!${NC}"
 echo
-echo -e "${BLUE}📋 Usage:${NC}"
+echo -e "${BLUE}Usage:${NC}"
 echo "  git aicommit                 # Use default threshold (0.5)"
 echo "  git aicommit 0.3             # Use custom threshold"
 echo
-echo -e "${BLUE}🔧 Environment Variable Support:${NC}"
+echo -e "${BLUE}Environment Variable Support:${NC}"
 echo "  You can now use OPENAI_API_KEY environment variable:"
 echo "  export OPENAI_API_KEY=\"your_key_here\""
 echo "  git aicommit"
 echo
-echo -e "${BLUE}📁 Files installed:${NC}"
+echo -e "${BLUE}Files installed:${NC}"
 echo "  $BIN_DIR/git_aicommit.o      # Main executable"
 echo "  $BIN_DIR/git-aicommit        # Git command wrapper"

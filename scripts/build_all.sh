@@ -5,7 +5,7 @@
 
 set -e  # Exit on any error
 
-echo "🔨 Building all custom git commands..."
+echo "Building all custom git commands..."
 
 # Get the root directory of the repo
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,10 +15,10 @@ build_command() {
     local cmd_name=$1
     local cmd_dir="$REPO_ROOT/commands/$cmd_name"
     
-    echo "🔨 Building $cmd_name..."
-    
+    echo "Building $cmd_name..."
+
     if [ ! -d "$cmd_dir" ]; then
-        echo "❌ Command directory $cmd_dir not found"
+        echo "ERROR: Command directory $cmd_dir not found"
         return 1
     fi
     
@@ -27,19 +27,19 @@ build_command() {
     # Create build directory and build
     mkdir -p build
     cd build
-    cmake .. || { echo "❌ CMake configuration failed for $cmd_name"; return 1; }
-    make || { echo "❌ Build failed for $cmd_name"; return 1; }
-    
+    cmake .. || { echo "ERROR: CMake configuration failed for $cmd_name"; return 1; }
+    make || { echo "ERROR: Build failed for $cmd_name"; return 1; }
+
     if [ -f "git_${cmd_name}.o" ]; then
-        echo "✅ $cmd_name built successfully"
+        echo "SUCCESS: $cmd_name built successfully"
     else
-        echo "❌ Executable git_${cmd_name}.o not found"
+        echo "ERROR: Executable git_${cmd_name}.o not found"
         return 1
     fi
 }
 
 # Build all commands in the commands directory
-echo "🔍 Discovering commands..."
+echo "Discovering commands..."
 built_commands=()
 for cmd_dir in "$REPO_ROOT/commands"/*; do
     if [ -d "$cmd_dir" ]; then
@@ -51,7 +51,7 @@ for cmd_dir in "$REPO_ROOT/commands"/*; do
 done
 
 echo ""
-echo "🎉 Build complete!"
+echo "Build complete!"
 echo ""
 echo "Built commands:"
 for cmd in "${built_commands[@]}"; do

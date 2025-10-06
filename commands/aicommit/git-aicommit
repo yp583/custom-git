@@ -145,7 +145,7 @@ for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
     echo "$JSON_OUTPUT" | jq -r ".[$i].affected_files[]"
   fi
 
-  echo "📝 Cluster $((i + 1)): $COMMIT_MESSAGE"
+  echo "Cluster $((i + 1)): $COMMIT_MESSAGE"
   
   # Create temp files to stage specific changes for this cluster
   TEMP_PATCH="/tmp/git_aicommit_cluster_$i.patch"
