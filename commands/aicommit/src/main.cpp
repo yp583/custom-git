@@ -135,6 +135,8 @@ int main(int argc, char *argv[]) {
     diff_files.push_back(current_file);
   }
 
+  cerr << "Parsed " << diff_files.size() << " files from git diff" << endl;
+
   // Process each file with language-specific parsing
   vector<Chunk> all_chunks;
   
@@ -206,37 +208,46 @@ int main(int argc, char *argv[]) {
 
   // Generate embeddings (progress to stderr so it doesn't interfere with JSON output)
   cerr << "Embedding " << all_chunks.size() << " chunks" << endl;
-  
+
   for (int i = 0; i < all_chunks.size(); i++) {
+    cerr << "Embedding chunk " << (i+1) << "/" << all_chunks.size() << endl;
+    cerr << "Chunk preview: " << all_chunks[i].code.substr(0, min((size_t)50, all_chunks[i].code.size())) << "..." << endl;
     vector<float> response = openai_embeddings_api.post(all_chunks[i].code);
+    cerr << "Got embedding with " << response.size() << " dimensions" << endl;
     all_chunks[i].embedding = response;
     embeddings.push_back(response);
   }
 
+  cerr << "Starting hierarchical clustering..." << endl;
   HierachicalClustering hc;
 
   float dist_thresh = 0.5;
   if (argc > 1) {
     dist_thresh = stof(argv[1]);
   }
+  cerr << "Distance threshold: " << dist_thresh << endl;
+
   // Clustering
   hc.cluster(embeddings, dist_thresh);
   vector<vector<int>> clusters = hc.get_clusters();
-  
+  cerr << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
+
   // Generate commit messages using ChatAPI
+  cerr << "Initializing Chat API for commit message generation..." << endl;
   OpenAI_ChatAPI openai_chat_api(api_key);
   
   // Output JSON for shell script to parse
   json output_json = json::array();
   
   for (int i = 0; i < clusters.size(); i++) {
+    cerr << "Processing cluster " << (i+1) << "/" << clusters.size() << " with " << clusters[i].size() << " chunks" << endl;
     json cluster_json;
     cluster_json["cluster_id"] = i;
-    
+
     string combined_changes;
     json changes = json::array();
     set<string> affected_files; // Track unique files in this cluster
-    
+
     for (int j = 0; j < clusters[i].size(); j++) {
       int idx = clusters[i][j];
       json change_json;
@@ -271,12 +282,15 @@ int main(int argc, char *argv[]) {
     }
     file_context = file_context.substr(0, file_context.length() - 2); // Remove trailing comma
     
+    cerr << "Generating commit message for cluster " << (i+1) << "..." << endl;
     string commit_message = openai_chat_api.generate_commit_message(file_context + "\n\nChanges:\n" + combined_changes);
+    cerr << "Generated commit message: " << commit_message << endl;
     cluster_json["commit_message"] = commit_message;
-    
+
     output_json.push_back(cluster_json);
   }
-  
+
+  cerr << "Outputting final JSON..." << endl;
   cout << output_json.dump() << endl;
   
 

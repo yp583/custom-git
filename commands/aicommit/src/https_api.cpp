@@ -13,30 +13,30 @@
 using namespace std;
 
 void APIConnection::start_conn() {
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0); 
-    if (sockfd < 0) { 
-        perror("Socket creation failed"); 
-        return; 
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("Socket creation failed");
+        return;
     }
 
-    struct hostent* server = gethostbyname(this->host.c_str()); 
-    if (server == nullptr) { 
-        cerr << "No such host: " << this->host << endl; 
-        close(sockfd); 
+    struct hostent* server = gethostbyname(this->host.c_str());
+    if (server == nullptr) {
+        cerr << "No such host: " << this->host << endl;
+        close(sockfd);
         return;
     }
 
     struct sockaddr_in serv_addr;
-    memset(&serv_addr, 0, sizeof(serv_addr)); 
+    memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    memcpy(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length); 
+    memcpy(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
     serv_addr.sin_port = htons(443);
 
-    if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) { 
-        perror("Connection failed"); 
-        close(sockfd); 
-        return; 
-    } 
+    if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+        perror("Connection failed");
+        close(sockfd);
+        return;
+    }
 
     //For HTTPS as it needs encryption
     SSL_load_error_strings();
@@ -45,9 +45,9 @@ void APIConnection::start_conn() {
 
     this->conn = SSL_new(this->ssl_ctx);
     SSL_set_fd(this->conn, sockfd);
-    
+
     SSL_set_tlsext_host_name(this->conn, this->host.c_str());
-    
+
     this->fd = sockfd;
 
     int err = SSL_connect(this->conn);
@@ -88,9 +88,14 @@ string APIConnection::recieve_length(int n) {
   int total_bytes = 0;
   while (total_bytes < n) {
     memset(buffer, 0, sizeof(buffer));
-    ssize_t bytes_received = SSL_read(this->conn, buffer, sizeof(buffer) - 1);
+    // Only read as many bytes as we need, not more
+    int bytes_to_read = min((int)(sizeof(buffer) - 1), n - total_bytes);
+    ssize_t bytes_received = SSL_read(this->conn, buffer, bytes_to_read);
+    if (bytes_received <= 0) {
+      break;
+    }
     total_bytes += bytes_received;
-    response += buffer;
+    response.append(buffer, bytes_received);  // Use append with size to avoid null terminator issues
   }
   return response;
 }
@@ -114,30 +119,30 @@ string APIConnection::recieve_sentinel(string sentinel) {
 }
 
 string APIConnection::post(string body, vector<pair<string, string>> headers) {
-    string request = "POST " + this->path + " HTTP/1.1\r\n"; 
-    request += "Host: " + this->host + "\r\n"; 
-    request += "Content-Length: " + to_string(body.size()) + "\r\n"; 
+    string request = "POST " + this->path + " HTTP/1.1\r\n";
+    request += "Host: " + this->host + "\r\n";
+    request += "Content-Length: " + to_string(body.size()) + "\r\n";
 
     for (pair<string, string> header : headers) {
         request += header.first + ": " + header.second + "\r\n";
     }
 
-    request += "\r\n" + body; 
+    request += "\r\n" + body;
 
     send(request);
     string response_headers = recieve_sentinel("\r\n\r\n");
-    
+
     // Check if using chunked transfer encoding
     if (response_headers.find("Transfer-Encoding: chunked") != string::npos) {
         return recieve_chunked();
     }
-    
+
     // Try Content-Length method
     size_t length_header_pos = response_headers.find("Content-Length: ");
     if (length_header_pos != string::npos) {
         int length_start = length_header_pos + 16;
         int length_end = response_headers.find("\r\n", length_start);
-        
+
         if (length_end != string::npos) {
             string length_str = response_headers.substr(length_start, length_end - length_start);
             try {
@@ -156,7 +161,7 @@ string APIConnection::post(string body, vector<pair<string, string>> headers) {
 
 string APIConnection::recieve_chunked() {
     string result;
-    
+
     while (true) {
         // Read chunk size (hex number followed by \r\n)
         string chunk_size_line = recieve_sentinel("\r\n");

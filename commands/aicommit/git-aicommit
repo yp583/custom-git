@@ -5,13 +5,23 @@
 
 set -e  # Exit on any error
 
-# Default distance threshold
+# Default settings
 DISTANCE_THRESHOLD=0.5
+VERBOSE=false
 
-# Get distance threshold from command line argument
-if [ ! -z "$1" ]; then
-  DISTANCE_THRESHOLD=$1
-fi
+# Parse command line arguments
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -v|--verbose)
+      VERBOSE=true
+      shift
+      ;;
+    *)
+      DISTANCE_THRESHOLD=$1
+      shift
+      ;;
+  esac
+done
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,14 +67,44 @@ fi
 
 echo "Analyzing staged changes..."
 
+if [ "$VERBOSE" = true ]; then
+  echo "Distance threshold: $DISTANCE_THRESHOLD"
+  echo "Executable: $EXECUTABLE"
+  echo "Git diff preview:"
+  git diff --cached | head -20
+  echo "---"
+fi
+
 # Generate git diff for staged changes and pipe to the clustering tool
-JSON_OUTPUT=$(git diff --cached | "$EXECUTABLE" "$DISTANCE_THRESHOLD" 2>&1)
+if [ "$VERBOSE" = true ]; then
+  # In verbose mode, show stderr output
+  JSON_OUTPUT=$(git diff --cached | "$EXECUTABLE" "$DISTANCE_THRESHOLD" 2>&1 | tee /dev/stderr)
+else
+  # In normal mode, capture stderr but don't show it
+  JSON_OUTPUT=$(git diff --cached | "$EXECUTABLE" "$DISTANCE_THRESHOLD" 2>&1)
+fi
+
+if [ "$VERBOSE" = true ]; then
+  echo "Raw output from executable:"
+  echo "$JSON_OUTPUT"
+  echo "---"
+fi
 
 # Extract just the JSON part (last line that starts with [)
 JSON_ONLY=$(echo "$JSON_OUTPUT" | grep '^\[' | tail -1)
 
+if [ "$VERBOSE" = true ]; then
+  echo "Extracted JSON:"
+  echo "$JSON_ONLY"
+  echo "---"
+fi
+
 # Check if we got valid JSON
 if [ -z "$JSON_ONLY" ] || ! echo "$JSON_ONLY" | jq empty 2>/dev/null; then
+  if [ "$VERBOSE" = true ]; then
+    echo "JSON validation failed"
+    echo "JSON_ONLY content: '$JSON_ONLY'"
+  fi
   echo "Warning: AI commit message generation failed, using fallback"
   git commit -m "update code"
   echo "Created fallback commit"
@@ -89,10 +129,22 @@ fi
 
 echo "Found $CLUSTER_COUNT clusters"
 
+if [ "$VERBOSE" = true ]; then
+  echo "Full cluster details:"
+  echo "$JSON_OUTPUT" | jq .
+fi
+
 # For each cluster, create a commit
 for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
   COMMIT_MESSAGE=$(echo "$JSON_OUTPUT" | jq -r ".[$i].commit_message")
-  
+
+  if [ "$VERBOSE" = true ]; then
+    echo "Processing cluster $((i + 1))..."
+    echo "Commit message: $COMMIT_MESSAGE"
+    echo "Affected files:"
+    echo "$JSON_OUTPUT" | jq -r ".[$i].affected_files[]"
+  fi
+
   echo "📝 Cluster $((i + 1)): $COMMIT_MESSAGE"
   
   # Create temp files to stage specific changes for this cluster
