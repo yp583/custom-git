@@ -1,9 +1,9 @@
+#ifndef OPENAI_API_HPP
+#define OPENAI_API_HPP
+
 #include "https_api.hpp"
 #include <string>
 #include <vector>
-#include <fstream>
-#include <iostream>
-#include <string>
 #include <nlohmann/json.hpp>
 
 using namespace std;
@@ -24,6 +24,8 @@ class OpenAI_ChatAPI {
     std::string api_key;
   public:
     OpenAI_ChatAPI(const string api_key);
-    string generate_commit_message(const string& code_changes);
+    string send_chat(const nlohmann::json& messages, int max_tokens = 100, float temperature = 0.7);
     string parse_chat_response(const string& response);
 };
+
+#endif // OPENAI_API_HPP

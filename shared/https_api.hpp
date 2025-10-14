@@ -1,3 +1,6 @@
+#ifndef HTTPS_API_HPP
+#define HTTPS_API_HPP
+
 #include <arpa/inet.h>
 #include <cstring>
 #include <iostream>
@@ -27,3 +30,5 @@ public:
     std::string post(std::string body, std::vector<std::pair<std::string, std::string>> headers);
     ~APIConnection();
 };
+
+#endif // HTTPS_API_HPP

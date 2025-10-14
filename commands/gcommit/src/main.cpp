@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
     file_context = file_context.substr(0, file_context.length() - 2); // Remove trailing comma
     
     cerr << "Generating commit message for cluster " << (i+1) << "..." << endl;
-    string commit_message = openai_chat_api.generate_commit_message(file_context + "\n\nChanges:\n" + combined_changes);
+    string commit_message = generate_commit_message(openai_chat_api, file_context + "\n\nChanges:\n" + combined_changes);
     cerr << "Generated commit message: " << commit_message << endl;
     cluster_json["commit_message"] = commit_message;
 

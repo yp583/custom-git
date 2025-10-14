@@ -32,6 +32,7 @@ find_package(OpenSSL REQUIRED)
 add_library(mcommit_shared STATIC
     ../../shared/https_api.cpp
     ../../shared/openai_api.cpp
+    ../../shared/utils.cpp
 )
 
 # Set up include directories for shared library

@@ -38,7 +38,7 @@ vector<float> OpenAI_EmbeddingsAPI::parse_embedding(const string& response) {
 OpenAI_ChatAPI::OpenAI_ChatAPI(const string api_key)
     : api_connection("api.openai.com", "/v1/chat/completions"), api_key(api_key) {}
 
-string OpenAI_ChatAPI::generate_commit_message(const string& code_changes) {
+string OpenAI_ChatAPI::send_chat(const nlohmann::json& messages, int max_tokens, float temperature) {
     const vector<pair<string, string>> headers = {
         {"Authorization", "Bearer " + this->api_key},
         {"Content-Type", "application/json"}
@@ -46,18 +46,9 @@ string OpenAI_ChatAPI::generate_commit_message(const string& code_changes) {
 
     json request_body = {
         {"model", "gpt-3.5-turbo"},
-        {"messages", {
-            {
-                {"role", "system"},
-                {"content", "You are a git commit message generator. Analyze the code changes and generate a concise commit message that describes what was actually modified, added, or fixed in the code. Use conventional commit style (feat:, fix:, refactor:, docs:, etc.). Focus on the technical changes, not meta-commentary. Return ONLY the commit message, no quotes or explanations. Examples: 'feat: add HTTP chunked encoding support', 'fix: handle SSL connection errors', 'refactor: extract JSON parsing logic'."}
-            },
-            {
-                {"role", "user"},
-                {"content", "Generate a commit message for these code changes:\n" + code_changes}
-            }
-        }},
-        {"max_tokens", 50},
-        {"temperature", 0.3}
+        {"messages", messages},
+        {"max_tokens", max_tokens},
+        {"temperature", temperature}
     };
 
     string body = request_body.dump();

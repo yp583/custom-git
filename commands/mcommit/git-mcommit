@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# Smart AI Commit Tool
+# Makes a naive call to openai for a nice commit message
+
+set -e  # Exit on any error
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Try to find the executable in multiple locations
+EXECUTABLE=""
+if [ -f "$SCRIPT_DIR/build/git_mcommit.o" ]; then
+  EXECUTABLE="$SCRIPT_DIR/build/git_mcommit.o"
+elif [ -f "$(dirname "$0")/git_mcommit.o" ]; then
+  EXECUTABLE="$(dirname "$0")/git_mcommit.o"
+elif [ -f "$HOME/bin/git_mcommit.o" ]; then
+  EXECUTABLE="$HOME/bin/git_mcommit.o"
+fi
+
+# Check if executable exists
+if [ -z "$EXECUTABLE" ] || [ ! -f "$EXECUTABLE" ]; then
+  echo "Error: git_mcommit.o not found. Please build the project first:"
+  echo "Run: ./scripts/setup.sh"
+  exit 1
+fi
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  echo "Error: Not in a git repository"
+  exit 1
+fi
+
+# Check if there are staged changes
+if git diff --cached --quiet; then
+  echo "No staged changes to commit."
+  exit 0
+fi
+
+echo "Generating AI commit message..."
+
+# Generate git diff for staged changes and pipe to the AI tool
+COMMIT_MESSAGE=$(git diff --cached | "$EXECUTABLE")
+
+# Check if we got a valid commit message
+if [ -z "$COMMIT_MESSAGE" ]; then
+  echo "Warning: AI commit message generation failed, using fallback"
+  git commit -m "update code"
+  echo "Created fallback commit"
+  exit 0
+fi
+
+# Commit with the AI-generated message
+git commit -m "$COMMIT_MESSAGE"
+echo "Created commit with AI-generated message: $COMMIT_MESSAGE"
+
+
+echo "Smart commit complete!"
