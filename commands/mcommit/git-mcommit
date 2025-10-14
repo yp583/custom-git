@@ -71,6 +71,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     exit 1
   fi
   
+  #test change
   # Read the edited message
   COMMIT_MESSAGE=$(cat "$TEMP_FILE")
   rm "$TEMP_FILE"
