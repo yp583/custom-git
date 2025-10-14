@@ -50,6 +50,15 @@ if [ -z "$COMMIT_MESSAGE" ]; then
   exit 0
 fi
 
+echo "Proposed commit message:"
+echo "$COMMIT_MESSAGE"
+echo ""
+read -p "Do you want to proceed with this commit message? (y/N): " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  echo "Commit cancelled."
+  exit 0
+fi
 # Commit with the AI-generated message
 git commit -m "$COMMIT_MESSAGE"
 echo "Created commit with AI-generated message: $COMMIT_MESSAGE"
