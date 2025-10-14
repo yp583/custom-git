@@ -17,21 +17,44 @@ A collection of custom git commands that extend Git's functionality with AI-powe
 
 3. **Start using the commands:**
    ```bash
-   git gcommit        # AI-powered diff clustering with default threshold
+   git mcommit        # Simple AI commit message generation
+   git gcommit        # Advanced diff clustering (⚠️ UNSTABLE)
    git gcommit 0.3    # Custom similarity threshold
    ```
 
 ## Available Commands
 
-### `git gcommit` - Smart Git Commit Tool
-A complete commit workflow tool that stages changes, analyzes them using AI, and creates commits automatically.
+### `git mcommit` - AI Commit Message Generator
+A simple and reliable tool that generates commit messages for your staged changes using AI.
+
+**Features:**
+- Generates commit messages for staged changes using OpenAI Chat API
+- Simple, focused workflow - works only with already staged changes
+- Reliable fallback to basic commit if AI fails
+- Lightweight and fast
+
+**Usage:**
+```bash
+git add .           # Stage your changes first
+git mcommit         # Generate AI commit message and commit
+```
+
+**Workflow:**
+1. Stage your changes manually (`git add`)
+2. Run `git mcommit` to generate AI commit message
+3. Creates a single commit with AI-generated message
+
+### `git gcommit` - Smart Git Commit Tool ⚠️ **IN PROGRESS**
+An advanced commit workflow tool that stages changes, analyzes them using AI, and creates multiple commits automatically.
+
+> **⚠️ WARNING**: This command is currently unstable and experimental. Use with caution in production repositories. Consider using `git mcommit` for reliable AI-powered commits.
 
 **Features:**
 - Automatically stages all changes (`git add .`)
 - Analyzes staged changes using tree-sitter semantic parsing
 - Clusters similar changes using AI embeddings and hierarchical clustering
 - Generates commit messages using OpenAI Chat API
-- Creates commits with AI-generated messages
+- Creates multiple commits automatically based on change clusters
 - Fallback to simple commit if AI APIs fail
 
 **Usage:**
@@ -44,7 +67,7 @@ git gcommit 0.3      # Use custom similarity threshold (0.0-1.0)
 1. Stages all changes in working directory
 2. Extracts and clusters code changes by similarity
 3. Generates descriptive commit messages for each cluster
-4. Creates commits automatically
+4. Creates multiple commits automatically
 
 **Requirements:**
 - OpenAI API key (set in `.env` file: `OPENAI_API_KEY=your_key_here`)
@@ -55,11 +78,17 @@ git gcommit 0.3      # Use custom similarity threshold (0.0-1.0)
 ```
 custom-git/
 ├── commands/           # Individual command implementations
-│   └── gcommit/       # Git commit clustering command
+│   ├── mcommit/       # Simple AI commit message generator
+│   │   ├── src/       # C++ source files
+│   │   ├── build/     # Build artifacts (generated)
+│   │   ├── CMakeLists.txt
+│   │   └── git-mcommit
+│   └── gcommit/       # Advanced commit clustering (unstable)
 │       ├── src/       # C++ source files
 │       ├── build/     # Build artifacts (generated)
 │       ├── CMakeLists.txt
 │       └── git-gcommit
+├── shared/            # Shared libraries (AI APIs, utilities)
 ├── scripts/           # Setup and build scripts
 │   ├── setup.sh      # Full installation script
 │   └── build_all.sh  # Build all commands (dev)
@@ -73,8 +102,11 @@ custom-git/
 # Build all commands without installing
 ./scripts/build_all.sh
 
-# Test a command locally
-cd commands/gcommit
+# Test commands locally
+cd commands/mcommit
+echo "test changes" | ./build/git_mcommit.o
+
+cd ../gcommit
 git diff HEAD^^^..HEAD | ./build/git_gcommit.o 0.5
 ```
 
@@ -94,7 +126,6 @@ git diff HEAD^^^..HEAD | ./build/git_gcommit.o 0.5
 
 ## Environment Setup
 
-Create a `.env` file in the root directory:
 ```bash
-OPENAI_API_KEY=your_openai_api_key_here
+export OPENAI_API_KEY=your_openai_api_key_here
 ```
