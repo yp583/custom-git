@@ -45,23 +45,44 @@ COMMIT_MESSAGE=$(git diff --cached | "$EXECUTABLE")
 # Check if we got a valid commit message
 if [ -z "$COMMIT_MESSAGE" ]; then
   echo "Warning: AI commit message generation failed, using fallback"
-  git commit -m "update code"
-  echo "Created fallback commit"
-  exit 0
+  COMMIT_MESSAGE="update code"
 fi
 
 echo "Proposed commit message:"
 echo "$COMMIT_MESSAGE"
 echo ""
-read -p "Do you want to proceed with this commit message? (y/N): " -n 1 -r
+read -p "Do you want to edit this message? (y/N): " -n 1 -r
 echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-  echo "Commit cancelled."
-  exit 0
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  # Use a temporary file to edit the message
+  TEMP_FILE=$(mktemp)
+  echo "$COMMIT_MESSAGE" > "$TEMP_FILE"
+  
+  # Try different editors in order of preference
+  if command -v nano >/dev/null 2>&1; then
+    nano "$TEMP_FILE"
+  elif command -v vim >/dev/null 2>&1; then
+    vim "$TEMP_FILE"
+  elif command -v vi >/dev/null 2>&1; then
+    vi "$TEMP_FILE"
+  else
+    echo "No suitable editor found. Please install nano, vim, or vi."
+    rm "$TEMP_FILE"
+    exit 1
+  fi
+  
+  # Read the edited message
+  COMMIT_MESSAGE=$(cat "$TEMP_FILE")
+  rm "$TEMP_FILE"
+  
+  echo ""
+  echo "Final commit message:"
+  echo "$COMMIT_MESSAGE"
+  echo ""
 fi
-# Commit with the AI-generated message
-git commit -m "$COMMIT_MESSAGE"
-echo "Created commit with AI-generated message: $COMMIT_MESSAGE"
 
+# Commit with the (possibly edited) message
+git commit -m "$COMMIT_MESSAGE"
+echo "Created commit with message: $COMMIT_MESSAGE"
 
 echo "Smart commit complete!"
