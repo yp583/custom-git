@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(git_aicommit)
+project(git_gcommit)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
@@ -68,7 +68,7 @@ CPMAddPackage(
 find_package(OpenSSL REQUIRED)
 
 # Link these to your target
-add_executable(git_aicommit.o 
+add_executable(git_gcommit.o
     src/ast.cpp
     src/main.cpp
     src/https_api.cpp
@@ -76,7 +76,8 @@ add_executable(git_aicommit.o
     src/hierarchal.cpp
     src/utils.cpp
 )
-target_link_libraries(git_aicommit.o
+target_include_directories(git_gcommit.o PRIVATE ${cpp-tree-sitter_SOURCE_DIR}/include)
+target_link_libraries(git_gcommit.o
     cpp-tree-sitter
     tree-sitter-python
     tree-sitter-cpp

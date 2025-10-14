@@ -1,14 +1,4 @@
-#include <iostream> 
-#include <cstring> 
-#include <unistd.h> 
-#include <arpa/inet.h> 
-#include <netdb.h> 
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <vector>
-#include <fstream>
-
-#include "https_api.h"
+#include "https_api.hpp"
 
 using namespace std;
 

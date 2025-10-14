@@ -1,6 +1,12 @@
-#include <string>
-#include <vector>
+#include <arpa/inet.h>
+#include <cstring>
+#include <iostream>
+#include <netdb.h>
+#include <openssl/err.h>
 #include <openssl/ssl.h>
+#include <string>
+#include <unistd.h>
+#include <vector>
 
 class APIConnection {
 private:

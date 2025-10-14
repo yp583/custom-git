@@ -1,24 +1,14 @@
-#include <iostream>
-#include <string>
-#include <vector>
-#include <string>
+#include "ast.hpp"
+#include "openai_api.hpp"
+#include "utils.hpp"
+#include "hierarchal.hpp"
 #include <regex>
-#include <cpp-tree-sitter.h>
-#include <fstream>
-#include <chrono>
-#include <thread>
-#include <nlohmann/json.hpp>
-#include <cstdlib>
 #include <set>
-
-#include "ast.h"
-#include "openai_api.h"
-#include "utils.h"
-#include "hierarchal.h"
 
 struct Chunk {
   string code;
   vector<float> embedding;
+  
   string file;
   int line_number;
   string language;

@@ -1,15 +1,4 @@
-#include <cassert>
-#include <cstdio>
-#include <memory>
-#include <string>
-#include <vector>
-#include <iostream>
-#include <regex>
-#include <algorithm>
-
-
-#include <cpp-tree-sitter.h>
-#include "ast.h"
+#include "ast.hpp"
 
 using namespace std;
 

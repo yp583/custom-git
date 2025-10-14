@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Git AICommit Installation Script
-# Installs the git aicommit command to ~/bin
+# Git GCommit Installation Script
+# Installs the git gcommit command to ~/bin
 
 set -e  # Exit on any error
 
@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}Git AICommit Installation Script${NC}"
+echo -e "${BLUE}Git GCommit Installation Script${NC}"
 echo
 
 # Get the directory where this script is located
@@ -20,8 +20,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
 
 # Build the project first
-echo -e "${YELLOW}Building git aicommit...${NC}"
-cd "$PROJECT_ROOT/commands/aicommit"
+echo -e "${YELLOW}Building git gcommit...${NC}"
+cd "$PROJECT_ROOT/commands/gcommit"
 
 if [ ! -d "build" ]; then
     mkdir build
@@ -30,7 +30,7 @@ fi
 cd build
 cmake .. && make -j4
 
-if [ ! -f "git_aicommit.o" ]; then
+if [ ! -f "git_gcommit.o" ]; then
     echo -e "${RED} Build failed: executable not found${NC}"
     exit 1
 fi
@@ -46,14 +46,14 @@ fi
 
 # Copy the executable to ~/bin
 echo -e "${YELLOW}Installing executable to ~/bin...${NC}"
-cp "$PROJECT_ROOT/commands/aicommit/build/git_aicommit.o" "$BIN_DIR/"
+cp "$PROJECT_ROOT/commands/gcommit/build/git_gcommit.o" "$BIN_DIR/"
 
-# Create the git-aicommit wrapper script
-echo -e "${YELLOW}Creating git-aicommit wrapper script...${NC}"
-cat > "$BIN_DIR/git-aicommit" << 'EOF'
+# Create the git-gcommit wrapper script
+echo -e "${YELLOW}Creating git-gcommit wrapper script...${NC}"
+cat > "$BIN_DIR/git-gcommit" << 'EOF'
 #!/bin/bash
 
-# Smart AI Commit Tool
+# Smart Git Commit Tool
 # Stages changes, clusters them, generates commit messages, and creates commits
 
 set -e  # Exit on any error
@@ -67,11 +67,11 @@ if [ ! -z "$1" ]; then
 fi
 
 # Path to the executable
-EXECUTABLE="$HOME/bin/git_aicommit.o"
+EXECUTABLE="$HOME/bin/git_gcommit.o"
 
 # Check if executable exists
 if [ ! -f "$EXECUTABLE" ]; then
-  echo "Error: git_aicommit.o not found at $EXECUTABLE"
+  echo "Error: git_gcommit.o not found at $EXECUTABLE"
   echo "Please run the installation script again."
   exit 1
 fi
@@ -139,7 +139,7 @@ for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
   echo "Cluster $((i + 1)): $COMMIT_MESSAGE"
   
   # Create temp files to stage specific changes for this cluster
-  TEMP_PATCH="/tmp/git_aicommit_cluster_$i.patch"
+  TEMP_PATCH="/tmp/git_gcommit_cluster_$i.patch"
   
   # Extract changes for this cluster and create a patch
   echo "$JSON_OUTPUT" | jq -r ".[$i].changes[] | 
@@ -159,13 +159,13 @@ for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
 done
 
 # Clean up temp files
-rm -f /tmp/git_aicommit_cluster_*.patch
+rm -f /tmp/git_gcommit_cluster_*.patch
 
 echo "Smart commit complete!"
 EOF
 
 # Make the wrapper script executable
-chmod +x "$BIN_DIR/git-aicommit"
+chmod +x "$BIN_DIR/git-gcommit"
 
 # Check if ~/bin is in PATH
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
@@ -182,14 +182,14 @@ fi
 echo -e "${GREEN}Installation complete!${NC}"
 echo
 echo -e "${BLUE}Usage:${NC}"
-echo "  git aicommit                 # Use default threshold (0.5)"
-echo "  git aicommit 0.3             # Use custom threshold"
+echo "  git gcommit                 # Use default threshold (0.5)"
+echo "  git gcommit 0.3             # Use custom threshold"
 echo
 echo -e "${BLUE}Environment Variable Support:${NC}"
 echo "  You can now use OPENAI_API_KEY environment variable:"
 echo "  export OPENAI_API_KEY=\"your_key_here\""
-echo "  git aicommit"
+echo "  git gcommit"
 echo
 echo -e "${BLUE}Files installed:${NC}"
-echo "  $BIN_DIR/git_aicommit.o      # Main executable"
-echo "  $BIN_DIR/git-aicommit        # Git command wrapper"
+echo "  $BIN_DIR/git_gcommit.o      # Main executable"
+echo "  $BIN_DIR/git-gcommit        # Git command wrapper"

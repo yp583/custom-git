@@ -28,17 +28,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Try to find the executable in multiple locations
 EXECUTABLE=""
-if [ -f "$SCRIPT_DIR/build/git_aicommit.o" ]; then
-  EXECUTABLE="$SCRIPT_DIR/build/git_aicommit.o"
-elif [ -f "$(dirname "$0")/git_aicommit.o" ]; then
-  EXECUTABLE="$(dirname "$0")/git_aicommit.o"
-elif [ -f "$HOME/bin/git_aicommit.o" ]; then
-  EXECUTABLE="$HOME/bin/git_aicommit.o"
+if [ -f "$SCRIPT_DIR/build/git_gcommit.o" ]; then
+  EXECUTABLE="$SCRIPT_DIR/build/git_gcommit.o"
+elif [ -f "$(dirname "$0")/git_gcommit.o" ]; then
+  EXECUTABLE="$(dirname "$0")/git_gcommit.o"
+elif [ -f "$HOME/bin/git_gcommit.o" ]; then
+  EXECUTABLE="$HOME/bin/git_gcommit.o"
 fi
 
 # Check if executable exists
 if [ -z "$EXECUTABLE" ] || [ ! -f "$EXECUTABLE" ]; then
-  echo "Error: git_aicommit.o not found. Please build the project first:"
+  echo "Error: git_gcommit.o not found. Please build the project first:"
   echo "Run: ./scripts/setup.sh"
   exit 1
 fi
@@ -148,7 +148,7 @@ for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
   echo "Cluster $((i + 1)): $COMMIT_MESSAGE"
   
   # Create temp files to stage specific changes for this cluster
-  TEMP_PATCH="/tmp/git_aicommit_cluster_$i.patch"
+  TEMP_PATCH="/tmp/git_gcommit_cluster_$i.patch"
   
   # Extract changes for this cluster and create a patch
   echo "$JSON_OUTPUT" | jq -r ".[$i].changes[] | 
@@ -168,6 +168,6 @@ for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
 done
 
 # Clean up temp files
-rm -f /tmp/git_aicommit_cluster_*.patch
+rm -f /tmp/git_gcommit_cluster_*.patch
 
 echo "Smart commit complete!"

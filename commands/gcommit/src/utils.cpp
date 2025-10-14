@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "utils.hpp"
 
 float cos_sim(vector<float> a, vector<float> b) {
   float dot = 0.0;

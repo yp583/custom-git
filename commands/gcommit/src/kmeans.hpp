@@ -1,4 +1,7 @@
 #include <vector>
+#include <algorithm>
+#include <random>
+
 using namespace std;
 
 class KMeans {
@@ -11,6 +14,6 @@ public:
     KMeans(int k, int max_iter, int dim);
 
     void fit(vector<vector<float>> data);
-    void predict(vector<float> data);
+    int predict(vector<float> data);
     ~KMeans();
 };

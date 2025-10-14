@@ -1,7 +1,11 @@
-#include "https_api.h"
+#include "https_api.hpp"
 #include <string>
 #include <vector>
-#include <utility>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <nlohmann/json.hpp>
+
 using namespace std;
 
 class OpenAI_EmbeddingsAPI {

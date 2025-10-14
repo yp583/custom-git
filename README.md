@@ -17,13 +17,13 @@ A collection of custom git commands that extend Git's functionality with AI-powe
 
 3. **Start using the commands:**
    ```bash
-   git aicommit        # AI-powered diff clustering with default threshold
-   git aicommit 0.3    # Custom similarity threshold
+   git gcommit        # AI-powered diff clustering with default threshold
+   git gcommit 0.3    # Custom similarity threshold
    ```
 
 ## Available Commands
 
-### `git aicommit` - Smart AI Commit Tool
+### `git gcommit` - Smart Git Commit Tool
 A complete commit workflow tool that stages changes, analyzes them using AI, and creates commits automatically.
 
 **Features:**
@@ -36,8 +36,8 @@ A complete commit workflow tool that stages changes, analyzes them using AI, and
 
 **Usage:**
 ```bash
-git aicommit          # Stage all changes and create smart commits (default threshold 0.5)
-git aicommit 0.3      # Use custom similarity threshold (0.0-1.0)
+git gcommit          # Stage all changes and create smart commits (default threshold 0.5)
+git gcommit 0.3      # Use custom similarity threshold (0.0-1.0)
 ```
 
 **Workflow:**
@@ -55,11 +55,11 @@ git aicommit 0.3      # Use custom similarity threshold (0.0-1.0)
 ```
 custom-git/
 ├── commands/           # Individual command implementations
-│   └── aicommit/      # AI commit analysis command
+│   └── gcommit/       # Git commit clustering command
 │       ├── src/       # C++ source files
 │       ├── build/     # Build artifacts (generated)
 │       ├── CMakeLists.txt
-│       └── git-aicommit
+│       └── git-gcommit
 ├── scripts/           # Setup and build scripts
 │   ├── setup.sh      # Full installation script
 │   └── build_all.sh  # Build all commands (dev)
@@ -74,8 +74,8 @@ custom-git/
 ./scripts/build_all.sh
 
 # Test a command locally
-cd commands/aicommit
-git diff HEAD^^^..HEAD | ./build/git_aicommit.o 0.5
+cd commands/gcommit
+git diff HEAD^^^..HEAD | ./build/git_gcommit.o 0.5
 ```
 
 ### Adding New Commands

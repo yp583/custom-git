@@ -1,6 +1,11 @@
 #include <string>
-#include "tree_sitter/api.h"
+#include <cassert>
+#include <cstdio>
+#include <string>
 #include <vector>
+#include <cpp-tree-sitter.h>
+#include <vector>
+
 using namespace std;
 // Function declarations
 vector<string> chunkNode(const ts::Node& node, const string& text, size_t maxChars = 1500);

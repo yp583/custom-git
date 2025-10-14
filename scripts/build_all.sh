@@ -59,7 +59,7 @@ for cmd in "${built_commands[@]}"; do
 done
 echo ""
 echo "To test a command locally:"
-echo "  cd commands/aicommit && git diff HEAD^^^..HEAD | ./build/git_aicommit.o"
+echo "  cd commands/gcommit && git diff HEAD^^^..HEAD | ./build/git_gcommit.o"
 echo ""
 echo "To install all commands system-wide:"
 echo "  ./scripts/setup.sh"

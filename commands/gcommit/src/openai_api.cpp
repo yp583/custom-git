@@ -1,9 +1,4 @@
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <nlohmann/json.hpp>
-
-#include "openai_api.h"
+#include "openai_api.hpp"
 
 using namespace std;
 using json = nlohmann::json;

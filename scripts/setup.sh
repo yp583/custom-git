@@ -118,7 +118,7 @@ for cmd_dir in "$REPO_ROOT/commands"/*; do
 done
 echo ""
 echo "Usage example:"
-echo "  git aicommit        # Use default threshold (0.5)"
-echo "  git aicommit 0.3    # Use custom threshold"
+echo "  git gcommit        # Use default threshold (0.5)"
+echo "  git gcommit 0.3    # Use custom threshold"
 echo ""
 echo "Note: You may need to restart your terminal or run 'source ~/.zshrc' (or ~/.bashrc)"

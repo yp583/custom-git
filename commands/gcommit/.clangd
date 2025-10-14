@@ -1,0 +1,8 @@
+CompileFlags:
+  Add:
+    - "-I/Users/ypatel/Desktop/projects/custom-git/commands/gcommit/build/_deps/cpp-tree-sitter-src/include"
+    - "-I/Users/ypatel/Desktop/projects/custom-git/commands/gcommit/build/_deps/nlohmann_json-src/include"
+    - "-I/Users/ypatel/Desktop/projects/custom-git/commands/gcommit/build/_deps/tree-sitter-src/lib/include"
+    - "-I/opt/homebrew/opt/openssl@3/include"
+    - "-std=c++20"
+  CompilationDatabase: "/Users/ypatel/Desktop/projects/custom-git/commands/gcommit/build"
