@@ -1,11 +1,17 @@
 cmake_minimum_required(VERSION 3.14)
-project(git_gcommit)
+
+# Define the shared library
+add_library(custom_git_shared STATIC
+    ast.cpp
+    https_api.cpp
+    openai_api.cpp
+    utils.cpp
+)
 
 # Set C++ standard
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+target_compile_features(custom_git_shared PUBLIC cxx_std_20)
 
-# Download CPM.cmake
+# Download CPM.cmake if not already available
 set(CPM_DOWNLOAD_VERSION 0.38.1)
 set(CPM_DOWNLOAD_LOCATION "${CMAKE_BINARY_DIR}/cmake/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
 
@@ -18,22 +24,22 @@ if(NOT (EXISTS ${CPM_DOWNLOAD_LOCATION}))
 endif()
 include(${CPM_DOWNLOAD_LOCATION})
 
-# Add cpp-tree-sitter
+# Add dependencies that the shared library needs
 CPMAddPackage(
   NAME cpp-tree-sitter
   GIT_REPOSITORY https://github.com/nsumner/cpp-tree-sitter.git
   GIT_TAG v0.0.2
 )
 
-# Add the Python grammar (fix the version specification)
+# Add the grammar parsers
 add_grammar_from_repo(tree-sitter-python
   https://github.com/tree-sitter/tree-sitter-python.git
-  0.20.4  # Remove the 'v' prefix entirely
+  0.20.4
 )
 
 add_grammar_from_repo(tree-sitter-cpp
   https://github.com/tree-sitter/tree-sitter-cpp.git
-  0.23.4  # Remove the 'v' prefix entirely
+  0.23.4
 )
 
 add_grammar_from_repo(tree-sitter-java
@@ -45,12 +51,6 @@ add_grammar_from_repo(tree-sitter-javascript
   https://github.com/tree-sitter/tree-sitter-javascript.git
   0.23.0
 )
-
-# TypeScript support temporarily disabled due to build issues
-# add_grammar_from_repo(tree-sitter-typescript
-#   https://github.com/tree-sitter/tree-sitter-typescript.git
-#   0.20.4
-# )
 
 add_grammar_from_repo(tree-sitter-go
   https://github.com/tree-sitter/tree-sitter-go.git
@@ -67,22 +67,14 @@ CPMAddPackage(
 # Find OpenSSL
 find_package(OpenSSL REQUIRED)
 
-# Create shared library from shared source files
-add_library(custom_git_shared STATIC
-    ../../shared/ast.cpp
-    ../../shared/https_api.cpp
-    ../../shared/openai_api.cpp
-    ../../shared/utils.cpp
-)
-
-# Set up include directories for shared library
+# Include directories for the shared library
 target_include_directories(custom_git_shared 
     PUBLIC 
-        ../../shared
+        ${CMAKE_CURRENT_SOURCE_DIR}
         ${cpp-tree-sitter_SOURCE_DIR}/include
 )
 
-# Link dependencies to shared library
+# Link libraries that the shared library depends on
 target_link_libraries(custom_git_shared
     PUBLIC
         cpp-tree-sitter
@@ -95,21 +87,3 @@ target_link_libraries(custom_git_shared
         OpenSSL::SSL
         OpenSSL::Crypto
 )
-
-# Create the main executable
-add_executable(git_gcommit.o
-    src/main.cpp
-    src/hierarchal.cpp
-    src/kmeans.cpp
-)
-
-# Set up include directories for executable
-target_include_directories(git_gcommit.o PRIVATE 
-    src
-    ../../shared
-)
-
-# Link the executable to the shared library
-target_link_libraries(git_gcommit.o
-    custom_git_shared
-) 

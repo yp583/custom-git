@@ -189,13 +189,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // for (int i = 0; i < ins_chunks.size(); i++) {
-  //   cout << "Insertion:\n" << ins_chunks[i] << endl;
-  // }
-  // for (int i = 0; i < del_chunks.size(); i++) {
-  //   cout << "Deletion:\n" << del_chunks[i] << endl;
-  // }
-
   // Generate embeddings (progress to stderr so it doesn't interfere with JSON output)
   cerr << "Embedding " << all_chunks.size() << " chunks" << endl;
 
