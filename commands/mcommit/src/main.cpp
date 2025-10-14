@@ -16,6 +16,12 @@ int main() {
 
     string line;
     while (getline(cin, line)) {
+        if (line[0] == '+') {
+            diff += "Insertion: ";
+        }
+        else if (line[0] == '-') {
+            diff += "Deletion: ";
+        }
         diff += line + "\n";
     }
 
