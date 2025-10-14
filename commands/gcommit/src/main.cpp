@@ -31,40 +31,7 @@ int main(int argc, char *argv[]) {
   string line;
   string git_diff;
 
-  string api_key;
-  
-  // Try multiple locations for .env file
-  vector<string> env_paths = {
-    "./.env",                                                    // Current directory
-    "../.env",                                                   // Parent directory  
-    "../../.env",                                               // Grandparent directory
-    string(getenv("HOME") ? getenv("HOME") : "") + "/.config/git-aicommit/.env",  // User config
-    string(getenv("HOME") ? getenv("HOME") : "") + "/Desktop/projects/custom-git/.env"  // Project location
-  };
-  
-  for (const string& env_path : env_paths) {
-    if (env_path.empty()) continue;
-    
-    ifstream env_file(env_path);
-    if (env_file.is_open()) {
-      while (getline(env_file, line)) {
-        if (line.substr(0, 14) == "OPENAI_API_KEY") {
-          api_key = line.substr(15);
-          break;
-        }
-      }
-      env_file.close();
-      if (!api_key.empty()) break;  // Found key, stop searching
-    }
-  }
-  
-  // If not found in .env files, try environment variable
-  if (api_key.empty()) {
-    const char* env_api_key = getenv("OPENAI_API_KEY");
-    if (env_api_key != nullptr) {
-      api_key = string(env_api_key);
-    }
-  }
+  string api_key = getenv("OPENAI_API_KEY");
   
   if (api_key.empty()) {
     cerr << "Error: OPENAI_API_KEY not found in .env file or environment variables" << endl;
