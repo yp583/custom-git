@@ -1,2 +1,0 @@
-A simple test file for debugging the AI commit functionality.
-This should generate embeddings and commit messages properly.

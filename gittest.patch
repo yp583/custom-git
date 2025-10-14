@@ -1,6 +1,0 @@
-diff --git a/example.txt b/example.txt
-index 0123456..789abcd 100644
---- a/example.txt
-+++ b/example.txt
-@@ -10,1 +10,1 @@
-+line 1
