@@ -19,6 +19,7 @@ struct DiffFile {
 class DiffReader {
 private:
     istream& in;
+    bool verbose;
 
     regex diff_header_regex;
     regex chunk_header_regex;
@@ -33,7 +34,7 @@ private:
     void ingestDiffLine(string line);
 
 public:
-    DiffReader(istream& in);
+    DiffReader(istream& in, bool verbose = false);
     vector<DiffFile> getFiles() const;
     void ingestDiff();
     ~DiffReader();

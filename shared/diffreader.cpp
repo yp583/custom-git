@@ -1,9 +1,9 @@
 #include "diffreader.hpp"
 #include <vector>
 
-DiffReader::DiffReader(istream& in) : in(in), in_file(false), in_chunk(false) {
+DiffReader::DiffReader(istream& in, bool verbose) : in(in), verbose(verbose), in_file(false), in_chunk(false) {
     this->diff_header_regex = regex("^diff --git a/(.*) b/(.*)");
-    this->chunk_header_regex = regex("^@@.*@@");
+    this->chunk_header_regex = regex("^@@.*@@.*");
     this->ins_regex = regex("^\\+(?!\\+)(.*)");
     this->del_regex = regex("^\\-(?!\\-)(.*)");
 }
@@ -25,39 +25,50 @@ void DiffReader::ingestDiffLine(string line) {
         this->in_file = true;
         this->in_chunk = false;
         this->files.push_back(current_file);
+
+        if (this->verbose){
+            cout << "LINE WAS NEW FILE: " << line << endl;
+        }
         return;
     }
 
     // Check for chunk header (@@)
-    if (this->in_file && regex_match(line, this->chunk_header_regex)) {
+    if (this->in_file && line.substr(0, 2) == "@@") {
         this->in_chunk = true;
+        if (this->verbose){
+            cout << "LINE WAS NEW CHUNK: " << line << endl;
+        }
         return;
     }
 
     // Process diff lines if we're in a chunk
     if (this->in_file && this->in_chunk && !this->files.empty()) {
         DiffLine dline;
-        bool line_processed = false;
+        // bool line_processed = false;
+
+        if (this->verbose){
+            cout << "LINE BEING ADDED: " << line << endl;
+        }
         
-        if (regex_match(line, match, this->ins_regex)) {
+        if (line[0] == '+') {
             dline.mode = INSERTION;
-            dline.content = match[1].str();
-            line_processed = true;
-        } else if (regex_match(line, match, this->del_regex)) {
+            dline.content = line.substr(1);
+            // line_processed = true;
+        } else if (line[0] == '-') {
             dline.mode = DELETION;
-            dline.content = match[1].str();
-            line_processed = true;
+            dline.content = line.substr(1);
+            // line_processed = true;
         } else if (line[0] == ' ') {
             // Context line (unchanged)
             dline.mode = EQ;
             dline.content = line.substr(1); // Remove the leading space
-            line_processed = true;
+            // line_processed = true;
         }
         
-        if (line_processed) {
-            // Add the line to the most recent file
-            this->files.back().lines.push_back(dline);
-        }
+        // if (line_processed) {
+        // Add the line to the most recent file
+        this->files.back().lines.push_back(dline);
+        // }
     }
 }
 
