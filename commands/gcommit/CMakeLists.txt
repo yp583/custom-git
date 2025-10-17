@@ -73,6 +73,7 @@ add_library(custom_git_shared STATIC
     ../../shared/https_api.cpp
     ../../shared/openai_api.cpp
     ../../shared/utils.cpp
+    ../../shared/diffreader.cpp
 )
 
 # Set up include directories for shared library

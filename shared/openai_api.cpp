@@ -45,7 +45,7 @@ string OpenAI_ChatAPI::send_chat(const nlohmann::json& messages, int max_tokens,
     };
 
     json request_body = {
-        {"model", "gpt-3.5-turbo"},
+        {"model", "gpt-4o-mini"},
         {"messages", messages},
         {"max_tokens", max_tokens},
         {"temperature", temperature}

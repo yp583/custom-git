@@ -59,14 +59,12 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
   echo "$COMMIT_MESSAGE" > "$TEMP_FILE"
   
   # Try different editors in order of preference
-  if command -v nano >/dev/null 2>&1; then
-    nano "$TEMP_FILE"
-  elif command -v vim >/dev/null 2>&1; then
+  if command -v vim >/dev/null 2>&1; then
     vim "$TEMP_FILE"
   elif command -v vi >/dev/null 2>&1; then
     vi "$TEMP_FILE"
   else
-    echo "No suitable editor found. Please install nano, vim, or vi."
+    echo "No suitable editor found. Please install vim, or vi."
     rm "$TEMP_FILE"
     exit 1
   fi
