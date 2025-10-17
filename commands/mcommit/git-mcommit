@@ -5,6 +5,28 @@
 
 set -e  # Exit on any error
 
+# Parse command line arguments
+EDIT_MODE=false
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -e|--edit)
+      EDIT_MODE=true
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: git-mcommit [-e|--edit] [-h|--help]"
+      echo "  -e, --edit    Automatically open editor to modify commit message"
+      echo "  -h, --help    Show this help message"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Use -h or --help for usage information"
+      exit 1
+      ;;
+  esac
+done
+
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -51,10 +73,10 @@ fi
 echo "Proposed commit message:"
 echo "$COMMIT_MESSAGE"
 echo ""
-read -p "Do you want to edit this message? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-  # Use a temporary file to edit the message
+
+# Handle editing based on flag or user choice
+if [ "$EDIT_MODE" = true ]; then
+  # Automatically open editor when -e flag is used
   TEMP_FILE=$(mktemp)
   echo "$COMMIT_MESSAGE" > "$TEMP_FILE"
   
@@ -69,7 +91,6 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     exit 1
   fi
   
-  #test change
   # Read the edited message
   COMMIT_MESSAGE=$(cat "$TEMP_FILE")
   rm "$TEMP_FILE"
@@ -78,6 +99,14 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
   echo "Final commit message:"
   echo "$COMMIT_MESSAGE"
   echo ""
+else
+  # Ask for confirmation when no -e flag
+  read -p "Confirm this commit message? (Y/n): " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Nn]$ ]]; then
+    echo "Commit cancelled."
+    exit 0
+  fi
 fi
 
 # Commit with the (possibly edited) message
