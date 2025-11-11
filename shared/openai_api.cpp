@@ -3,10 +3,10 @@
 using namespace std;
 using json = nlohmann::json;
 
-OpenAI_EmbeddingsAPI::OpenAI_EmbeddingsAPI(const string api_key) 
+OpenAIAPI::OpenAIAPI(const string api_key) 
     : api_connection("api.openai.com", "/v1/embeddings"), api_key(api_key) {}
 
-vector<float> OpenAI_EmbeddingsAPI::post(string text) {
+vector<float> OpenAIAPI::post_embedding(string text) {
     const vector<pair<string, string>> headers = {
         {"Authorization", "Bearer " + this->api_key}, 
         {"Content-Type", "application/json"}
@@ -23,7 +23,7 @@ vector<float> OpenAI_EmbeddingsAPI::post(string text) {
     return embedding;
 }
 
-vector<float> OpenAI_EmbeddingsAPI::parse_embedding(const string& response) {
+vector<float> OpenAIAPI::parse_embedding(const string& response) {
     try {
         json j = json::parse(response);
         vector<float> embedding = j["data"][0]["embedding"].get<vector<float>>();
@@ -38,7 +38,7 @@ vector<float> OpenAI_EmbeddingsAPI::parse_embedding(const string& response) {
 OpenAI_ChatAPI::OpenAI_ChatAPI(const string api_key)
     : api_connection("api.openai.com", "/v1/chat/completions"), api_key(api_key) {}
 
-string OpenAI_ChatAPI::send_chat(const nlohmann::json& messages, int max_tokens, float temperature) {
+string OpenAIAPI::post_chat(const nlohmann::json& messages, int max_tokens, float temperature) {
     const vector<pair<string, string>> headers = {
         {"Authorization", "Bearer " + this->api_key},
         {"Content-Type", "application/json"}
@@ -57,7 +57,7 @@ string OpenAI_ChatAPI::send_chat(const nlohmann::json& messages, int max_tokens,
     return this->parse_chat_response(raw_response);
 }
 
-string OpenAI_ChatAPI::parse_chat_response(const string& response) {
+string OpenAIAPI::parse_chat_response(const string& response) {
     try {
         json j = json::parse(response);
         string message = j["choices"][0]["message"]["content"].get<string>();

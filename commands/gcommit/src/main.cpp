@@ -5,6 +5,7 @@
 #include "diffreader.hpp"
 #include <regex>
 #include <set>
+#include <vector>
 struct Chunk {
   string code;
   vector<float> embedding;
@@ -21,183 +22,107 @@ using json = nlohmann::json;
 
 
 int main(int argc, char *argv[]) {
-  string line;
-  string git_diff;
 
-
-  // string api_key = getenv("OPENAI_API_KEY");
+  string api_key = getenv("OPENAI_API_KEY");
   
-  // if (api_key.empty()) {
-  //   cout << "Error: OPENAI_API_KEY not found in .env file or environment variables" << endl;
-  //   return 1;
-  // }
-
-  // OpenAI_EmbeddingsAPI openai_embeddings_api(api_key);
-  // vector<vector<float>> embeddings;
-
-  DiffReader dr(cin);
-
-  dr.ingestDiff();
-
-
-  cout << dr.getFiles().size() << endl;
-
-  for (const auto& file : dr.getFiles()) {
-    cout << "File: " << file.filepath << endl;
-    for (const auto& line : file.lines) {
-      string mode_str;
-      switch (line.mode) {
-        case EQ: mode_str = "EQ"; break;
-        case INSERTION: mode_str = "INSERTION"; break;
-        case DELETION: mode_str = "DELETION"; break;
-      }
-      cout << "  [" << mode_str << "] " << line.content << endl;
-    }
-    cout << endl;
+  if (api_key.empty()) {
+    cout << "Error: OPENAI_API_KEY not found in .env file or environment variables" << endl;
+    return 1;
   }
 
 
-  
-  // // Parse git diff to extract file-specific changes
-  // vector<DiffFile> diff_files;
-  // DiffFile current_file;
-  // bool in_file = false;
-  // bool in_chunk = false;
-  
-  // regex diff_header_regex("^diff --git a/(.*) b/(.*)");
-  // regex chunk_header_regex("^@@.*@@");
-  // regex ins_regex("^\\+(?!\\+)(.*)");
-  // regex del_regex("^\\-(?!\\-)(.*)");
-  
-  // while (getline(cin, line)) {
-  //   smatch match;
-    
-  //   // Check for new file header
-  //   if (regex_match(line, match, diff_header_regex)) {
-  //     // Save previous file if exists
-  //     if (in_file) {
-  //       diff_files.push_back(current_file);
-  //     }
+  //handles reading from cin too
+  DiffReader dr(cin);
+  dr.ingestDiff();
+
+  cout << "Parsed " << dr.getFiles().size() << " files from git diff" << endl;
+
+  vector<DiffChunk> ins_chunks;
+  vector<DiffChunk> del_chunks;
+
+
+
+  for (const DiffFile& file : dr.getFiles()) {
+    string language = detectLanguageFromPath(file.filepath);
+    DiffChunk file_ins = getDiffContent(file, {EQ, INSERTION});
+    DiffChunk file_del = getDiffContent(file, {EQ, DELETION});
+
+    vector<DiffChunk> file_ins_chunks;
+    vector<DiffChunk> file_del_chunks;
+
+    if (language != "text") { //use ast for non text files
+      string file_ins_content = combineContent(file_ins);
+      string file_del_content = combineContent(file_del);
+      ts::Tree ins_tree = codeToTree(file_ins_content, language);
+      ts::Tree del_tree = codeToTree(file_del_content, language);
+
+      file_ins_chunks = chunkDiff(ins_tree.getRootNode(), file_ins);
+      file_del_chunks = chunkDiff(del_tree.getRootNode(), file_del);
       
-  //     // Start new file
-  //     current_file = DiffFile();
-  //     current_file.filepath = match[2]; // Use 'b/' path (after changes)
-  //     current_file.language = detectLanguageFromPath(current_file.filepath);
-  //     in_file = true;
-  //     in_chunk = false;
-  //     continue;
-  //   }
-    
-  //   // Check for chunk header (@@)
-  //   if (in_file && regex_match(line, chunk_header_regex)) {
-  //     in_chunk = true;
-  //     continue;
-  //   }
-    
-  //   // Process diff lines if we're in a chunk
-  //   if (in_file && in_chunk) {
-  //     if (regex_match(line, match, ins_regex)) {
-  //       current_file.insertions += match[1].str() + "\n";
-  //     } else if (regex_match(line, match, del_regex)) {
-  //       current_file.deletions += match[1].str() + "\n";
-  //     }
-  //   }
-  // }
-  
-  // // Don't forget the last file
-  // if (in_file) {
-  //   diff_files.push_back(current_file);
-  // }
-
-  // cerr << "Parsed " << diff_files.size() << " files from git diff" << endl;
-
-  // // Process each file with language-specific parsing
-  // vector<Chunk> all_chunks;
-  
-  // for (const DiffFile& file : diff_files) {
-  //   // Check if this is a text file that should use character-based chunking
-  //   bool useCharacterChunking = isTextFile(file.filepath);
-    
-  //   if (!file.insertions.empty()) {
-  //     if (useCharacterChunking) {
-  //       vector<string> ins_text_chunks = chunkByCharacters(file.insertions);
-  //       for (const string& chunk_code : ins_text_chunks) {
-  //         Chunk chunk;
-  //         chunk.code = chunk_code;
-  //         chunk.file = file.filepath;
-  //         chunk.language = file.language;
-  //         chunk.line_number = 0; // Not applicable for text chunks
-  //         chunk.type = "insertion";
-  //         all_chunks.push_back(chunk);
-  //       }
-  //     } else {
-  //       ts::Tree ins_tree = codeToTree(file.insertions, file.language);
-  //       vector<string> ins_code_tree = chunkNode(ins_tree.getRootNode(), file.insertions);
-  //       for (const string& chunk_code : ins_code_tree) {
-  //         Chunk chunk;
-  //         chunk.code = chunk_code;
-  //         chunk.file = file.filepath;
-  //         chunk.language = file.language;
-  //         chunk.line_number = 0; // Could be enhanced to track actual line numbers
-  //         chunk.type = "insertion";
-  //         all_chunks.push_back(chunk);
-  //       }
-  //     }
-  //   }
-    
-  //   if (!file.deletions.empty()) {
-  //     if (useCharacterChunking) {
-  //       vector<string> del_text_chunks = chunkByCharacters(file.deletions);
-  //       for (const string& chunk_code : del_text_chunks) {
-  //         Chunk chunk;
-  //         chunk.code = chunk_code;
-  //         chunk.file = file.filepath;
-  //         chunk.language = file.language;
-  //         chunk.line_number = 0; // Not applicable for text chunks
-  //         chunk.type = "deletion";
-  //         all_chunks.push_back(chunk);
-  //       }
-  //     } else {
-  //       ts::Tree del_tree = codeToTree(file.deletions, file.language);
-  //       vector<string> del_code_tree = chunkNode(del_tree.getRootNode(), file.deletions);
-  //       for (const string& chunk_code : del_code_tree) {
-  //         Chunk chunk;
-  //         chunk.code = chunk_code;
-  //         chunk.file = file.filepath;
-  //         chunk.language = file.language;
-  //         chunk.line_number = 0; // Could be enhanced to track actual line numbers
-  //         chunk.type = "deletion";
-  //         all_chunks.push_back(chunk);
-  //       }
-  //     }
-  //   }
-  // }
+      ins_chunks.insert(ins_chunks.end(), file_ins_chunks.begin(), file_ins_chunks.end());
+      del_chunks.insert(del_chunks.end(), file_del_chunks.begin(), file_del_chunks.end());
+    }
+    else {
+      file_ins_chunks = chunkByLines(file_ins);
+      file_del_chunks = chunkByLines(file_del);
+      
+      ins_chunks.insert(ins_chunks.end(), file_ins_chunks.begin(), file_ins_chunks.end());
+      del_chunks.insert(del_chunks.end(), file_del_chunks.begin(), file_del_chunks.end());
+    }
+  }
 
   // // Generate embeddings (progress to stderr so it doesn't interfere with JSON output)
   // cerr << "Embedding " << all_chunks.size() << " chunks" << endl;
 
-  // for (int i = 0; i < all_chunks.size(); i++) {
-  //   cerr << "Embedding chunk " << (i+1) << "/" << all_chunks.size() << endl;
-  //   cerr << "Chunk preview: " << all_chunks[i].code.substr(0, min((size_t)50, all_chunks[i].code.size())) << "..." << endl;
-  //   vector<float> response = openai_embeddings_api.post(all_chunks[i].code);
-  //   cerr << "Got embedding with " << response.size() << " dimensions" << endl;
-  //   all_chunks[i].embedding = response;
-  //   embeddings.push_back(response);
-  // }
+  OpenAI_EmbeddingsAPI openai_embeddings_api(api_key);
+  vector<vector<float>> embeddings;
 
-  // cerr << "Starting hierarchical clustering..." << endl;
-  // HierachicalClustering hc;
+  for (size_t i = 0; i < ins_chunks.size(); i++){
+    string content = combineContent(ins_chunks[i]);
+    content = "===== CODE THAT HAS BEEN ADDED =====\n\n" + content;
 
-  // float dist_thresh = 0.5;
-  // if (argc > 1) {
-  //   dist_thresh = stof(argv[1]);
-  // }
-  // cerr << "Distance threshold: " << dist_thresh << endl;
+    vector<float> response = openai_embeddings_api.post(content);
+    embeddings.push_back(response);
+  }
+  for (size_t i = 0; i < del_chunks.size(); i++){
+    string content = combineContent(del_chunks[i]);
+    content = "===== CODE THAT HAS BEEN DELETED =====\n\n" + content;
 
-  // // Clustering
-  // hc.cluster(embeddings, dist_thresh);
-  // vector<vector<int>> clusters = hc.get_clusters();
-  // cerr << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
+    vector<float> response = openai_embeddings_api.post(content);
+    embeddings.push_back(response);
+  }
+
+  HierachicalClustering hc;
+
+  float dist_thresh = 0.5;
+  if (argc > 1) {
+    dist_thresh = stof(argv[1]);
+  }
+  cout << "Starting hierarchical clustering with distance threshold of " << dist_thresh << " ..." << endl;
+
+  // Clustering
+  hc.cluster(embeddings, dist_thresh);
+  vector<vector<int>> clusters = hc.get_clusters();
+  cout << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
+
+  for (size_t i = 0; i < clusters.size(); i++) {
+    const vector<int>& cluster = clusters[i];
+    vector<DiffChunk> cluster_chunks;
+    
+    for (int idx: cluster) {
+      if (idx < ins_chunks.size()) {
+        cluster_chunks.push_back(ins_chunks[idx]);
+      } else {
+        cluster_chunks.push_back(del_chunks[idx - ins_chunks.size()]);
+      }
+    }
+    
+    cout << "Chunk " << (i + 1) << ":" << endl;
+    for (const DiffChunk& chunk : cluster_chunks) {
+      cout << combineContent(chunk) << endl;
+    }
+    cout << endl;
+  }
 
   // // Generate commit messages using ChatAPI
   // cerr << "Initializing Chat API for commit message generation..." << endl;
