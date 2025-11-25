@@ -41,39 +41,28 @@ int main(int argc, char *argv[]) {
 
   cout << "Parsed " << dr.getFiles().size() << " files from git diff" << endl;
 
-  vector<DiffChunk> ins_chunks;
-  vector<DiffChunk> del_chunks;
-
-
+  vector<DiffChunk> all_chunks;
 
   for (const DiffFile& file : dr.getFiles()) {
     string language = detectLanguageFromPath(file.filepath);
-    DiffChunk file_ins = getDiffContent(file, {EQ, INSERTION});
-    DiffChunk file_del = getDiffContent(file, {EQ, DELETION});
+    DiffChunk file_chunk = getDiffContent(file, {});  // All lines - no filtering
 
-    vector<DiffChunk> file_ins_chunks;
-    vector<DiffChunk> file_del_chunks;
+    vector<DiffChunk> file_chunks;
 
     if (language != "text") { //use ast for non text files
-      string file_ins_content = combineContent(file_ins);
-      string file_del_content = combineContent(file_del);
-      ts::Tree ins_tree = codeToTree(file_ins_content, language);
-      ts::Tree del_tree = codeToTree(file_del_content, language);
-
-      file_ins_chunks = chunkDiff(ins_tree.getRootNode(), file_ins);
-      file_del_chunks = chunkDiff(del_tree.getRootNode(), file_del);
-      
-      ins_chunks.insert(ins_chunks.end(), file_ins_chunks.begin(), file_ins_chunks.end());
-      del_chunks.insert(del_chunks.end(), file_del_chunks.begin(), file_del_chunks.end());
+      string file_content = combineContent(file_chunk);
+      ts::Tree tree = codeToTree(file_content, language);
+      file_chunks = chunkDiff(tree.getRootNode(), file_chunk);
     }
     else {
-      file_ins_chunks = chunkByLines(file_ins);
-      file_del_chunks = chunkByLines(file_del);
-      
-      ins_chunks.insert(ins_chunks.end(), file_ins_chunks.begin(), file_ins_chunks.end());
-      del_chunks.insert(del_chunks.end(), file_del_chunks.begin(), file_del_chunks.end());
+      file_chunks = chunkByLines(file_chunk);
     }
+
+    all_chunks.insert(all_chunks.end(), file_chunks.begin(), file_chunks.end());
   }
+
+  // Merge overlapping chunks to maintain non-overlap invariant
+  all_chunks = mergeOverlappingChunks(all_chunks, 3);
 
   // // Generate embeddings (progress to stderr so it doesn't interfere with JSON output)
   // cerr << "Embedding " << all_chunks.size() << " chunks" << endl;
@@ -84,19 +73,11 @@ int main(int argc, char *argv[]) {
 
   cout << "Adding Embedding requests to the queue" << endl;
 
-  for (size_t i = 0; i < ins_chunks.size(); i++){
-    string content = combineContent(ins_chunks[i]);
-    content = "===== CODE THAT HAS BEEN ADDED =====\n\n" + content;
+  for (size_t i = 0; i < all_chunks.size(); i++){
+    string content = combineContent(all_chunks[i]);
 
     future<HTTPSResponse> resp_future = openai_api.async_embedding(content);
-    embedding_resp_futures.push_back(move(resp_future));
-  }
-  for (size_t i = 0; i < del_chunks.size(); i++){
-    string content = combineContent(del_chunks[i]);
-    content = "===== CODE THAT HAS BEEN DELETED =====\n\n" + content;
-
-    future<HTTPSResponse> resp_future = openai_api.async_embedding(content);
-    embedding_resp_futures.push_back(move(resp_future));
+    embedding_resp_futures.push_back(std::move(resp_future));
   }
 
   openai_api.run_requests();
@@ -127,93 +108,39 @@ int main(int argc, char *argv[]) {
   vector<vector<int>> clusters = hc.get_clusters();
   cout << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
 
-  // Write each DiffChunk as a separate patch file
-  filesystem::create_directories("/tmp/patches");
-  int patch_num = 1;
+  vector<DiffChunk> all_cluster_chunks;
+  vector<size_t> cluster_end_idx;
+  
 
   for (size_t i = 0; i < clusters.size(); i++) {
     const vector<int>& cluster = clusters[i];
 
     cout << "Cluster " << (i + 1) << ":" << endl;
+
+    // Collect chunks for this cluster
     for (int idx: cluster) {
-      DiffChunk chunk;
-      if (idx < ins_chunks.size()) {
-        chunk = ins_chunks[idx];
-      } else {
-        chunk = del_chunks[idx - ins_chunks.size()];
-      }
-
-      string patch_path = "/tmp/patches/patch_" + to_string(patch_num++) + ".patch";
-      ofstream patch_file(patch_path);
-      string patch = createPatch(chunk);
-      patch_file << patch;
-      patch_file.close();
-
-      cout << "  " << patch_path << endl;
-      cout << patch << endl;
+      all_cluster_chunks.push_back(all_chunks[idx]);
     }
+    size_t prev_end = cluster_end_idx.empty() ? 0 : cluster_end_idx.back();
+    cluster_end_idx.push_back(prev_end + cluster.size());
   }
 
-  // // Generate commit messages using ChatAPI
-  // cerr << "Initializing Chat API for commit message generation..." << endl;
-  // OpenAI_ChatAPI openai_chat_api(api_key);
-  
-  // // Output JSON for shell script to parse
-  // json output_json = json::array();
-  
-  // for (int i = 0; i < clusters.size(); i++) {
-  //   cerr << "Processing cluster " << (i+1) << "/" << clusters.size() << " with " << clusters[i].size() << " chunks" << endl;
-  //   json cluster_json;
-  //   cluster_json["cluster_id"] = i;
+  vector<string> patches = createPatches(all_cluster_chunks);
 
-  //   string combined_changes;
-  //   json changes = json::array();
-  //   set<string> affected_files; // Track unique files in this cluster
+  // Write patches to cluster folders
+  for (size_t i = 0; i < cluster_end_idx.size(); i++) {
+    string cluster_dir = "/tmp/patches/cluster_" + to_string(i);
+    filesystem::create_directories(cluster_dir);
 
-  //   for (int j = 0; j < clusters[i].size(); j++) {
-  //     int idx = clusters[i][j];
-  //     json change_json;
-      
-  //     const Chunk& chunk = all_chunks[idx];
-  //     change_json["type"] = chunk.type; // "insertion" or "deletion"
-  //     change_json["code"] = chunk.code;
-  //     change_json["file"] = chunk.file;
-  //     change_json["language"] = chunk.language;
-      
-  //     // Add file to affected files set
-  //     affected_files.insert(chunk.file);
-      
-  //     // Format for AI with file context
-  //     combined_changes += "File: " + chunk.file + " (" + chunk.type + ")\n";
-  //     if (chunk.type == "insertion") {
-  //       combined_changes += "+" + chunk.code + "\n\n";
-  //     } else {
-  //       combined_changes += "-" + chunk.code + "\n\n";
-  //     }
-      
-  //     changes.push_back(change_json);
-  //   }
-    
-  //   cluster_json["changes"] = changes;
-  //   cluster_json["affected_files"] = vector<string>(affected_files.begin(), affected_files.end());
-    
-  //   // Generate commit message with file context
-  //   string file_context = "Files changed: ";
-  //   for (const string& file : affected_files) {
-  //     file_context += file + ", ";
-  //   }
-  //   file_context = file_context.substr(0, file_context.length() - 2); // Remove trailing comma
-    
-  //   cerr << "Generating commit message for cluster " << (i+1) << "..." << endl;
-  //   string commit_message = generate_commit_message(openai_chat_api, file_context + "\n\nChanges:\n" + combined_changes);
-  //   cerr << "Generated commit message: " << commit_message << endl;
-  //   cluster_json["commit_message"] = commit_message;
+    size_t start_idx = (i == 0) ? 0 : cluster_end_idx[i - 1];
+    size_t end_idx = cluster_end_idx[i];
 
-  //   output_json.push_back(cluster_json);
-  // }
-
-  // cerr << "Outputting final JSON..." << endl;
-  // cout << output_json.dump() << endl;
-
-  // return 0;
+    for (size_t j = start_idx; j < end_idx && j < patches.size(); j++) {
+      string patch_path = cluster_dir + "/patch_" + to_string(j - start_idx) + ".patch";
+      ofstream patch_file(patch_path);
+      patch_file << patches[j];
+      patch_file.close();
+      cout << "Wrote " << patch_path << endl;
+    }
+  }
 }

@@ -46,7 +46,7 @@ void AsyncHTTPSConnection::post_async(const string& host, const string& path, co
 
     req->socket_fd = socket_fd;
     req->state = CONNECTING;
-    req->resp = move(resp);
+    req->resp = std::move(resp);
 
     string request = "POST " + path + " HTTP/1.1\r\n";
     request += "Host: " + host + "\r\n";
@@ -61,7 +61,7 @@ void AsyncHTTPSConnection::post_async(const string& host, const string& path, co
     EV_SET(&ev, socket_fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, req.get());
     kevent(kqueue_fd, &ev, 1, nullptr, 0, nullptr);
 
-    reqs[socket_fd] = move(req);
+    reqs[socket_fd] = std::move(req);
 }
 
 void AsyncHTTPSConnection::run_loop(){

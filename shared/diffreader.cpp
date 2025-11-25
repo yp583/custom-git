@@ -141,11 +141,13 @@ int getNumLines(string filepath) {
     return count;
 }
 
-string createPatch(DiffChunk chunk) {
+string createPatch(DiffChunk chunk, int old_offset, int new_offset, bool include_file_header) {
     string patch;
 
-    patch += "--- a/" + chunk.filepath + "\n";
-    patch += "+++ b/" + chunk.filepath + "\n";
+    if (include_file_header) {
+        patch += "--- a/" + chunk.filepath + "\n";
+        patch += "+++ b/" + chunk.filepath + "\n";
+    }
 
     // Calculate counts
     int old_count = 0, new_count = 0;
@@ -155,9 +157,11 @@ string createPatch(DiffChunk chunk) {
         else if (line.mode == INSERTION) { new_count++; }
     }
 
-    // Hunk header
-    patch += "@@ -" + to_string(chunk.old_start) + "," + to_string(old_count) +
-             " +" + to_string(chunk.new_start) + "," + to_string(new_count) + " @@\n";
+    // Hunk header with offsets applied
+    int adjusted_old_start = chunk.old_start + old_offset;
+    int adjusted_new_start = chunk.new_start + new_offset;
+    patch += "@@ -" + to_string(adjusted_old_start) + "," + to_string(old_count) +
+             " +" + to_string(adjusted_new_start) + "," + to_string(new_count) + " @@\n";
 
     // Lines with prefixes
     for (const DiffLine& line : chunk.lines) {
@@ -169,4 +173,40 @@ string createPatch(DiffChunk chunk) {
     }
 
     return patch;
+}
+
+vector<string> createPatches(vector<DiffChunk> chunks) {
+    vector<string> patches;
+
+    // Store info about processed chunks for offset calculation
+    struct ChunkInfo {
+        string filepath;
+        int old_start;
+        int delta;  // new_count - old_count
+    };
+    vector<ChunkInfo> processed;
+
+    for (const DiffChunk& chunk : chunks) {
+        // Calculate offset from all PREVIOUS patches that are BEFORE this chunk in the file
+        int offset = 0;
+        for (const auto& prev : processed) {
+            if (prev.filepath == chunk.filepath && prev.old_start < chunk.old_start) {
+                offset += prev.delta;
+            }
+        }
+
+        // Apply offset to both old and new line numbers
+        patches.push_back(createPatch(chunk, offset, offset, true));
+
+        // Track this chunk's info for future offset calculations
+        int old_count = 0, new_count = 0;
+        for (const DiffLine& line : chunk.lines) {
+            if (line.mode == EQ)             { old_count++; new_count++; }
+            else if (line.mode == DELETION)  { old_count++; }
+            else if (line.mode == INSERTION) { new_count++; }
+        }
+        processed.push_back({chunk.filepath, chunk.old_start, new_count - old_count});
+    }
+
+    return patches;
 }

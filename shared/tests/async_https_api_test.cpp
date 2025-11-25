@@ -52,7 +52,7 @@ TEST_F(AsyncHTTPSConnectionTest, BasicHTTPSPostRequest) {
         "/post",
         R"({"test": "data"})",
         {{"Content-Type", "application/json"}},
-        move(prom)
+        std::move(prom)
     );
 
     // Run event loop in separate thread
@@ -83,7 +83,7 @@ TEST_F(AsyncHTTPSConnectionTest, HTTPSGetRequest) {
         "/get",
         "",
         {{"User-Agent", "AsyncHTTPSConnection/1.0"}},
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {
@@ -114,7 +114,7 @@ TEST_F(AsyncHTTPSConnectionTest, ChunkedTransferEncoding) {
         "/stream/5",
         "",
         {},
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {
@@ -144,7 +144,7 @@ TEST_F(AsyncHTTPSConnectionTest, ContentLengthTransferMode) {
         "/json",
         "",
         {},
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {
@@ -174,7 +174,7 @@ TEST_F(AsyncHTTPSConnectionTest, LargeResponseHandling) {
         "/stream/100",
         "",
         {},
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {
@@ -208,7 +208,7 @@ TEST_F(AsyncHTTPSConnectionTest, InvalidHostHandling) {
         "/test",
         "",
         {},
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {
@@ -236,7 +236,7 @@ TEST_F(AsyncHTTPSConnectionTest, HTTPSToValidHostInvalidPath) {
         "/this-path-does-not-exist-12345",
         "",
         {},
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {
@@ -268,7 +268,7 @@ TEST_F(AsyncHTTPSConnectionTest, HeaderParsingWithSpillover) {
         "/bytes/1024", // Get exactly 1024 bytes
         "",
         {},
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {
@@ -297,7 +297,7 @@ TEST_F(AsyncHTTPSConnectionTest, CustomHeadersSent) {
             {"X-Custom-Header", "TestValue123"},
             {"User-Agent", "AsyncHTTPSTest/1.0"}
         },
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {
@@ -336,7 +336,7 @@ TEST_F(AsyncHTTPSConnectionTest, DISABLED_MultipleConcurrentRequests) {
             "/get",
             "",
             {},
-            move(promises[i])
+            std::move(promises[i])
         );
     }
 
@@ -370,7 +370,7 @@ TEST_F(AsyncHTTPSConnectionTest, TLSHandshakeSuccess) {
         "/",
         "",
         {},
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {
@@ -400,7 +400,7 @@ TEST_F(AsyncHTTPSConnectionTest, DelayedResponseHandling) {
         "/delay/2",
         "",
         {},
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {
@@ -427,7 +427,7 @@ TEST_F(AsyncHTTPSConnectionTest, SpecialCharactersInBody) {
         "/post",
         test_body,
         {{"Content-Type", "application/json"}},
-        move(prom)
+        std::move(prom)
     );
 
     thread event_loop([this]() {

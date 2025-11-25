@@ -5,6 +5,8 @@
 #include <string>
 #include <regex>
 #include <vector>
+#include <unordered_map>
+#include <algorithm>
 using namespace std;
 enum DiffMode {
     EQ = 0,
@@ -56,6 +58,7 @@ public:
 
 DiffChunk getDiffContent(DiffFile file, vector<DiffMode> types);
 string combineContent(DiffChunk chunk);
-string createPatch(DiffChunk chunk);
+string createPatch(DiffChunk chunk, int old_offset = 0, int new_offset = 0, bool include_file_header = true);
+vector<string> createPatches(vector<DiffChunk> chunks);
 
 #endif // DIFFREADER_HPP

@@ -19,7 +19,7 @@ future<HTTPSResponse> AsyncOpenAIAPI::async_embedding(string text) {
 
     promise<HTTPSResponse> prom;
     future<HTTPSResponse> fut = prom.get_future();
-    this->api_connection.post_async("api.openai.com", "/v1/embeddings", body, headers, move(prom));
+    this->api_connection.post_async("api.openai.com", "/v1/embeddings", body, headers, std::move(prom));
     return fut;
 }
 
@@ -40,7 +40,7 @@ future<HTTPSResponse> AsyncOpenAIAPI::async_chat(const nlohmann::json& messages,
 
     promise<HTTPSResponse> prom;
     future<HTTPSResponse> fut = prom.get_future();
-    this->api_connection.post_async("api.openai.com", "/v1/chat/completions", body, headers, move(prom));
+    this->api_connection.post_async("api.openai.com", "/v1/chat/completions", body, headers, std::move(prom));
     return fut;
 }
 
