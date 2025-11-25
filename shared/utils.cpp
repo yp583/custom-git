@@ -41,4 +41,22 @@ string generate_commit_message(OpenAIAPI& chat_api, const string& code_changes) 
 
     return chat_api.post_chat(messages, 50, 0.3);
     */
+}future<string> async_generate_commit_message(AsyncOpenAIAPI& chat_api, const string& code_changes) {
+    json messages = {
+        {
+            {"role", "system"},
+            {"content", "You are a git commit message generator. Analyze the code changes and generate a concise commit message that describes what was actually modified, added, or fixed in the code. Focus on the technical changes, not meta-commentary. Return only the commit message without quotes or explanations. Examples: 'add HTTP chunked encoding support', 'handle SSL connection errors', 'extract JSON parsing logic'."}
+        },
+        {
+            {"role", "user"},
+            {"content", "Generate a commit message for these code changes:\n" + code_changes}
+        }
+    };
+
+    future<HTTPSResponse> response_future = chat_api.async_chat(messages, 50, 0.3);
+
+    return std::async(std::launch::deferred, [](future<HTTPSResponse> resp_fut) {
+        HTTPSResponse response = resp_fut.get();
+        return parse_chat_response(response.body);
+    }, std::move(response_future));
 }

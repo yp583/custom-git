@@ -100,15 +100,12 @@ fi
 if [ -z "$JSON_ONLY" ] || ! echo "$JSON_ONLY" | jq empty 2>/dev/null; then
   if [ "$VERBOSE" = true ]; then
     echo "JSON validation failed"
-    echo "JSON_ONLY content: '$JSON_ONLY'"
-  fi
-  echo "Warning: AI commit message generation failed, using fallback"
+if ! echo "$JSON_OUTPUT" | jq empty 2>/dev/null; then
+  echo "Warning: Invalid JSON in commits.json, using fallback"
   git commit -m "update code"
   echo "Created fallback commit"
   exit 0
 fi
-
-JSON_OUTPUT="$JSON_ONLY"
 
 # Parse JSON output and create commits
 echo "Generating commits..."

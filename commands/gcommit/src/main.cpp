@@ -22,6 +22,17 @@ struct Chunk {
 using namespace std;
 using json = nlohmann::json;
 
+struct ClusteredCommit {
+  vector<string> patch_paths;
+  string commit_message;
+
+  json to_json() const {
+    return json{
+      {"patch_paths", patch_paths},
+      {"commit_message", commit_message}
+    };
+  }
+};
 
 
 int main(int argc, char *argv[]) {
@@ -142,6 +153,7 @@ int main(int argc, char *argv[]) {
   }
 
   vector<string> patches = createPatches(all_cluster_chunks);
+  vector<vector<string>> clusters_patch_paths(1, vector<string>());
 
   // Write patches to cluster folders
   for (size_t i = 0; i < cluster_end_idx.size(); i++) {
