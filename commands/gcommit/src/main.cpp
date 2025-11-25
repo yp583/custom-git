@@ -8,6 +8,7 @@
 #include <vector>
 #include <fstream>
 #include <filesystem>
+#include <unordered_map>
 struct Chunk {
   string code;
   vector<float> embedding;
