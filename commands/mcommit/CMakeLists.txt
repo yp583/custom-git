@@ -32,6 +32,8 @@ find_package(OpenSSL REQUIRED)
 add_library(mcommit_shared STATIC
     ../../shared/https_api.cpp
     ../../shared/openai_api.cpp
+    ../../shared/async_https_api.cpp
+    ../../shared/async_openai_api.cpp
     ../../shared/utils.cpp
 )
 

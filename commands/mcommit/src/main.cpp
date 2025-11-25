@@ -1,30 +1,36 @@
-#include "openai_api.hpp"
+#include "async_openai_api.hpp"
 #include "utils.hpp"
 using namespace std;
 
 int main() {
-    string api_key = getenv("OPENAI_API_KEY");
+    const char* api_key_env = getenv("OPENAI_API_KEY");
+    string api_key = api_key_env ? api_key_env : "";
 
     if (api_key.empty()) {
-        cerr << "Error: OPENAI_API_KEY not found in .env file or environment variables" << endl;
+        cerr << "Error: OPENAI_API_KEY not found in environment variables" << endl;
         return 1;
-    } 
-
-    OpenAI_ChatAPI openai_chat_api(api_key);
+    }
 
     string diff;
-
     string line;
     while (getline(cin, line)) {
-        if (line[0] == '+') {
+        if (!line.empty() && line[0] == '+') {
             diff += "Insertion: ";
         }
-        else if (line[0] == '-') {
+        else if (!line.empty() && line[0] == '-') {
             diff += "Deletion: ";
         }
         diff += line + "\n";
     }
 
-    string message = generate_commit_message(openai_chat_api, diff);
-    cout << message;
+    AsyncHTTPSConnection conn;
+    AsyncOpenAIAPI openai_api(conn, api_key);
+
+    future<string> msg_future = async_generate_commit_message(openai_api, diff);
+    openai_api.run_requests();
+
+    string message = msg_future.get();
+    cout << message << endl;
+
+    return 0;
 }

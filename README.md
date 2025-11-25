@@ -131,8 +131,9 @@ export OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 ## TODOs
-- make a message for each cluster
+- make a message for each cluster [DONE]
 - make a terminal frontend
    - shows UMAP or TSNE of embeddings and clustering by color and a legend for each color and message
    - make an interactive ui to edit the clusters, for each cluster see the message, the diff from this and prev clusters
-      - involves making a staging  
+      - involves making a staging branch applying each patch and commiting after each cluster
+      - then the interactive ui can be a git diff on staging branch

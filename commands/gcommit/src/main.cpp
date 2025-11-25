@@ -22,6 +22,17 @@ struct Chunk {
 using namespace std;
 using json = nlohmann::json;
 
+struct ClusteredCommit {
+  vector<string> patch_paths;
+  string commit_message;
+
+  json to_json() const {
+    return json{
+      {"patch_paths", patch_paths},
+      {"commit_message", commit_message}
+    };
+  }
+};
 
 
 int main(int argc, char *argv[]) {
@@ -142,6 +153,7 @@ int main(int argc, char *argv[]) {
   }
 
   vector<string> patches = createPatches(all_cluster_chunks);
+  vector<vector<string>> clusters_patch_paths(1, vector<string>());
 
   // Write patches to cluster folders
   for (size_t i = 0; i < cluster_end_idx.size(); i++) {
@@ -156,7 +168,59 @@ int main(int argc, char *argv[]) {
       ofstream patch_file(patch_path);
       patch_file << patches[j];
       patch_file.close();
+      clusters_patch_paths.back().push_back(patch_path);
       if (verbose >= 1) cout << "Wrote " << patch_path << endl;
     }
   }
+
+  vector<future<string>> message_futures;
+  vector<ClusteredCommit> commits;
+  for (vector<string>& patch_paths: clusters_patch_paths) {
+    string diff_context = "";
+    ClusteredCommit commit{vector<string>(), "empty commit"};
+    for (string path: patch_paths) {
+      ifstream patch_file;
+      patch_file.open(path);
+
+      if (!patch_file.is_open()) {
+        cerr << "Error opening file!" << endl;
+        return 1;
+      }
+
+      string line;
+      while (getline(patch_file, line)) {
+        if (line[0] == '+') {
+          diff_context += "Insertion: ";
+        }
+        else if (line[0] == '-') {
+          diff_context += "Deletion: ";
+        }
+        diff_context += line + "\n";
+      }
+      patch_file.close();
+      diff_context += "\n\n\n";
+      commit.patch_paths.push_back(path);
+    }
+
+    message_futures.push_back(async_generate_commit_message(openai_api, diff_context));
+    commits.push_back(commit);
+  }
+
+  openai_api.run_requests();
+
+  for (size_t i = 0; i < commits.size(); i++) {
+    commits[i].commit_message = message_futures[i].get();
+  }
+
+  // Serialize and write JSON to file
+  json output = json::array();
+  for (const ClusteredCommit& commit : commits) {
+    output.push_back(commit.to_json());
+  }
+
+  ofstream commits_file("/tmp/patches/commits.json");
+  commits_file << output.dump();
+  commits_file.close();
+
+  return 0;
 }
