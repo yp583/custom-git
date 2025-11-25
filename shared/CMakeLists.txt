@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
+project(custom_git_shared)
 
 # Define the shared library
 add_library(custom_git_shared STATIC
@@ -87,3 +88,10 @@ target_link_libraries(custom_git_shared
         OpenSSL::SSL
         OpenSSL::Crypto
 )
+
+# Add tests subdirectory if BUILD_TESTING is enabled
+option(BUILD_TESTING "Build the testing tree." OFF)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

@@ -1,11 +1,13 @@
 #include "ast.hpp"
-#include "openai_api.hpp"
+#include "async_openai_api.hpp"
 #include "utils.hpp"
 #include "hierarchal.hpp"
 #include "diffreader.hpp"
 #include <regex>
 #include <set>
 #include <vector>
+#include <fstream>
+#include <filesystem>
 struct Chunk {
   string code;
   vector<float> embedding;
@@ -23,7 +25,8 @@ using json = nlohmann::json;
 
 int main(int argc, char *argv[]) {
 
-  string api_key = getenv("OPENAI_API_KEY");
+  const char* api_key_env = getenv("OPENAI_API_KEY");
+  string api_key = api_key_env ? api_key_env : "";
   
   if (api_key.empty()) {
     cout << "Error: OPENAI_API_KEY not found in .env file or environment variables" << endl;
@@ -74,22 +77,40 @@ int main(int argc, char *argv[]) {
   // // Generate embeddings (progress to stderr so it doesn't interfere with JSON output)
   // cerr << "Embedding " << all_chunks.size() << " chunks" << endl;
 
-  OpenAI_EmbeddingsAPI openai_embeddings_api(api_key);
-  vector<vector<float>> embeddings;
+  AsyncHTTPSConnection conn;
+  AsyncOpenAIAPI openai_api(conn, api_key);
+  vector<future<HTTPSResponse>> embedding_resp_futures;
+
+  cout << "Adding Embedding requests to the queue" << endl;
 
   for (size_t i = 0; i < ins_chunks.size(); i++){
     string content = combineContent(ins_chunks[i]);
     content = "===== CODE THAT HAS BEEN ADDED =====\n\n" + content;
 
-    vector<float> response = openai_embeddings_api.post(content);
-    embeddings.push_back(response);
+    future<HTTPSResponse> resp_future = openai_api.async_embedding(content);
+    embedding_resp_futures.push_back(move(resp_future));
   }
   for (size_t i = 0; i < del_chunks.size(); i++){
     string content = combineContent(del_chunks[i]);
     content = "===== CODE THAT HAS BEEN DELETED =====\n\n" + content;
 
-    vector<float> response = openai_embeddings_api.post(content);
-    embeddings.push_back(response);
+    future<HTTPSResponse> resp_future = openai_api.async_embedding(content);
+    embedding_resp_futures.push_back(move(resp_future));
+  }
+
+  openai_api.run_requests();
+
+  vector<vector<float>> embeddings;
+  for (future<HTTPSResponse>& resp: embedding_resp_futures) {
+    vector<float> embedding;
+    try {
+      embedding = parse_embedding(resp.get().body);
+    }
+    catch (const exception& e) {
+      embedding = {};
+    }
+    embeddings.push_back(embedding);
+    cout << "Done with Embedding Job" << endl;
   }
 
   HierachicalClustering hc;
@@ -105,23 +126,31 @@ int main(int argc, char *argv[]) {
   vector<vector<int>> clusters = hc.get_clusters();
   cout << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
 
+  // Write each DiffChunk as a separate patch file
+  filesystem::create_directories("/tmp/patches");
+  int patch_num = 1;
+
   for (size_t i = 0; i < clusters.size(); i++) {
     const vector<int>& cluster = clusters[i];
-    vector<DiffChunk> cluster_chunks;
-    
+
+    cout << "Cluster " << (i + 1) << ":" << endl;
     for (int idx: cluster) {
+      DiffChunk chunk;
       if (idx < ins_chunks.size()) {
-        cluster_chunks.push_back(ins_chunks[idx]);
+        chunk = ins_chunks[idx];
       } else {
-        cluster_chunks.push_back(del_chunks[idx - ins_chunks.size()]);
+        chunk = del_chunks[idx - ins_chunks.size()];
       }
+
+      string patch_path = "/tmp/patches/patch_" + to_string(patch_num++) + ".patch";
+      ofstream patch_file(patch_path);
+      string patch = createPatch(chunk);
+      patch_file << patch;
+      patch_file.close();
+
+      cout << "  " << patch_path << endl;
+      cout << patch << endl;
     }
-    
-    cout << "Chunk " << (i + 1) << ":" << endl;
-    for (const DiffChunk& chunk : cluster_chunks) {
-      cout << combineContent(chunk) << endl;
-    }
-    cout << endl;
   }
 
   // // Generate commit messages using ChatAPI

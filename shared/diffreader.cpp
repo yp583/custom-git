@@ -1,5 +1,6 @@
 #include "diffreader.hpp"
 #include <vector>
+#include <fstream>
 
 DiffReader::DiffReader(istream& in, bool verbose) 
     : in(in), 
@@ -18,15 +19,12 @@ void DiffReader::ingestDiffLine(string line) {
     
     // Check for new file header
     if (regex_match(line, match, this->diff_header_regex)) {
-
-        // Start new file
-        DiffFile current_file = DiffFile{};
-        current_file.filepath = match[2].str(); // Use 'b/' path (after changes)
+        // Store filepath, wait for @@ to create DiffFile
+        this->current_filepath = match[2].str();
         this->curr_line_num = 0;
 
         this->in_file = true;
         this->in_chunk = false;
-        this->files.push_back(current_file);
 
         if (this->verbose){
             cout << "LINE WAS NEW FILE: " << line << endl;
@@ -34,9 +32,23 @@ void DiffReader::ingestDiffLine(string line) {
         return;
     }
 
-    // Check for chunk header (@@). This will skip some context for the diff (one line per chunk header). TODO: fix
+    // Check for chunk header (@@) - create new DiffFile for each hunk
     if (this->in_file && line.substr(0, 2) == "@@") {
         this->in_chunk = true;
+
+        DiffFile current_file = DiffFile{};
+        current_file.filepath = this->current_filepath;
+
+        // Parse: @@ -old_start,old_count +new_start,new_count @@
+        regex hunk_regex("^@@ -(\\d+),?(\\d*) \\+(\\d+),?(\\d*) @@");
+        smatch m;
+        if (regex_search(line, m, hunk_regex)) {
+            current_file.old_start = stoi(m[1].str());
+            current_file.new_start = stoi(m[3].str());
+        }
+
+        this->files.push_back(current_file);
+
         if (this->verbose){
             cout << "LINE WAS NEW CHUNK: " << line << endl;
         }
@@ -58,12 +70,9 @@ void DiffReader::ingestDiffLine(string line) {
         
         if (line[0] == '+') {
             dline.mode = INSERTION;
-            // line_processed = true;
         } else if (line[0] == '-') {
             dline.mode = DELETION;
-            // line_processed = true;
         } else if (line[0] == ' ') {
-            // Context line (unchanged)
             dline.mode = EQ;
         }
         
@@ -86,7 +95,9 @@ DiffReader::~DiffReader() {}
 DiffChunk getDiffContent(DiffFile file, vector<DiffMode> types) {
     DiffChunk result;
     result.filepath = file.filepath;
-    
+    result.old_start = file.old_start;
+    result.new_start = file.new_start;
+
     for (const DiffLine& line : file.lines) {
         // If types is empty, return all lines
         if (types.empty()) {
@@ -112,3 +123,50 @@ string combineContent(DiffChunk chunk) {
     }
     return result;
 };
+
+int getNumLines(string filepath) {
+    ifstream rFile(filepath);
+
+    if (!rFile.is_open()) {
+        cerr << "Error opening file!" << endl;
+        return -1;  // Use -1 for error (0 could be valid)
+    }
+
+    int count = 0;
+    string line;
+    while (getline(rFile, line)) {
+        count++;
+    }
+
+    return count;
+}
+
+string createPatch(DiffChunk chunk) {
+    string patch;
+
+    patch += "--- a/" + chunk.filepath + "\n";
+    patch += "+++ b/" + chunk.filepath + "\n";
+
+    // Calculate counts
+    int old_count = 0, new_count = 0;
+    for (const DiffLine& line : chunk.lines) {
+        if (line.mode == EQ)        { old_count++; new_count++; }
+        else if (line.mode == DELETION)  { old_count++; }
+        else if (line.mode == INSERTION) { new_count++; }
+    }
+
+    // Hunk header
+    patch += "@@ -" + to_string(chunk.old_start) + "," + to_string(old_count) +
+             " +" + to_string(chunk.new_start) + "," + to_string(new_count) + " @@\n";
+
+    // Lines with prefixes
+    for (const DiffLine& line : chunk.lines) {
+        switch (line.mode) {
+            case EQ:        patch += " " + line.content + "\n"; break;
+            case INSERTION: patch += "+" + line.content + "\n"; break;
+            case DELETION:  patch += "-" + line.content + "\n"; break;
+        }
+    }
+
+    return patch;
+}

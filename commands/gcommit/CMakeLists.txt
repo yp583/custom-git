@@ -5,6 +5,11 @@ project(git_gcommit)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Debug build with Address Sanitizer
+set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fsanitize=address -fno-omit-frame-pointer")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+
 # Download CPM.cmake
 set(CPM_DOWNLOAD_VERSION 0.38.1)
 set(CPM_DOWNLOAD_LOCATION "${CMAKE_BINARY_DIR}/cmake/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
@@ -72,6 +77,8 @@ add_library(custom_git_shared STATIC
     ../../shared/ast.cpp
     ../../shared/https_api.cpp
     ../../shared/openai_api.cpp
+    ../../shared/async_https_api.cpp
+    ../../shared/async_openai_api.cpp
     ../../shared/utils.cpp
     ../../shared/diffreader.cpp
 )

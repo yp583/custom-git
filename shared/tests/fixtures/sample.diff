@@ -1,0 +1,32 @@
+diff --git a/src/auth/login.cpp b/src/auth/login.cpp
+index 1234567..abcdef0 100644
+--- a/src/auth/login.cpp
++++ b/src/auth/login.cpp
+@@ -10,6 +10,15 @@
+ #include "auth/login.h"
+ #include "utils/crypto.h"
+ 
++bool validatePassword(const std::string& password) {
++    if (password.length() < 8) {
++        return false;
++    }
++    bool hasUpper = std::any_of(password.begin(), password.end(), ::isupper);
++    bool hasDigit = std::any_of(password.begin(), password.end(), ::isdigit);
++    return hasUpper && hasDigit;
++}
++
+ bool authenticateUser(const std::string& username, const std::string& password) {
+     auto user = UserDB::findByUsername(username);
+     if (!user) {
+@@ -25,6 +34,12 @@ bool authenticateUser(const std::string& username, const std::string& password)
+     return true;
+ }
+ 
++std::string hashPassword(const std::string& password, const std::string& salt) {
++    std::string combined = password + salt;
++    return sha256(combined);
++}
++
+ void logout(Session& session) {
+     session.invalidate();
+     EventLog::record("user_logout", session.userId());

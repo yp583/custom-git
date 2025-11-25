@@ -19,12 +19,18 @@ struct DiffLine {
 struct DiffFile {
     string filepath;
     vector<DiffLine> lines;
+    int old_start = 1;
+    int new_start = 1;
 };
 //same data different purpose
 struct DiffChunk {
     string filepath;
     vector<DiffLine> lines;
+    int old_start = 1;
+    int new_start = 1;
 };
+
+
 class DiffReader {
 private:
     istream& in;
@@ -35,6 +41,7 @@ private:
     bool in_file;
     bool in_chunk;
     int curr_line_num;
+    string current_filepath;
 
     vector<DiffFile> files;
 
@@ -49,5 +56,6 @@ public:
 
 DiffChunk getDiffContent(DiffFile file, vector<DiffMode> types);
 string combineContent(DiffChunk chunk);
+string createPatch(DiffChunk chunk);
 
 #endif // DIFFREADER_HPP

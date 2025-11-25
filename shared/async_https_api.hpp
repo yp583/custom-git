@@ -15,6 +15,7 @@
 #include <vector>
 #include <sys/event.h>
 #include <sys/time.h>
+#include <future>
 
 using namespace std;
 
@@ -33,6 +34,11 @@ typedef enum {
     CHUNKED,
     CONNECTION_CLOSE,
 } transfer_mode_t;
+
+struct HTTPSResponse {
+    string headers;
+    string body;
+};
 
 struct HTTPSRequest {
     int socket_fd;
@@ -53,15 +59,14 @@ struct HTTPSRequest {
     string recv_headers;
     string recv_body;
 
+    promise<HTTPSResponse> resp;
+
 
     transfer_mode_t transfer_mode = CONNECTION_CLOSE;
-    size_t content_length = -1;
-    size_t chunk_size = -1;
+    size_t content_length = 0;
+    size_t chunk_size = 0;
+    string chunked_buffer;
 
-
-    // Callback for completion
-    function<void(const string& response, bool success)> callback;
-    
     HTTPSRequest(const string& h, const string& p) : host(h), path(p) {
         SSL_load_error_strings();
         SSL_library_init();
@@ -86,16 +91,16 @@ class AsyncHTTPSConnection {
 private:
     int kqueue_fd;
     unordered_map<int, unique_ptr<HTTPSRequest>> reqs;
-    void handle_connect(HTTPSRequest* req, uint32_t filter);
-    void handle_tls(HTTPSRequest* req, uint32_t filter);
-    void handle_write(HTTPSRequest* req, uint32_t filter);
+    void handle_connect(HTTPSRequest* req, int16_t filter);
+    void handle_tls(HTTPSRequest* req, int16_t filter);
+    void handle_write(HTTPSRequest* req, int16_t filter);
     void parse_response(HTTPSRequest* req, char buffer[], ssize_t bytes_recieved, string sentinel="\r\n");
-    void handle_read_response_headers(HTTPSRequest* req, uint32_t filter, string sentinel = "\r\n\r\n");
-    void handle_read_response(HTTPSRequest* req, uint32_t filter, string sentinel = "\r\n\r\n");
+    void handle_read_response_headers(HTTPSRequest* req, int16_t filter);
+    void handle_read_response(HTTPSRequest* req, int16_t filter);
     void cleanup(HTTPSRequest* req);
 public:
     AsyncHTTPSConnection();
-    void post_async(const string& host, const string& path, const string& body, const vector<pair<string, string>>& headers, function<void(const string&, bool)> callback);
+    void post_async(const string& host, const string& path, const string& body, const vector<pair<string, string>>& headers, promise<HTTPSResponse> resp);
     void run_loop();
     ~AsyncHTTPSConnection();
 };

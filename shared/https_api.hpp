@@ -11,23 +11,25 @@
 #include <unistd.h>
 #include <vector>
 
+using namespace std;
+
 class APIConnection {
 private:
     int fd;
     SSL *conn;
     SSL_CTX *ssl_ctx;
-    std::string host;
-    std::string path;
-    
+    string host;
+    string path;
+
     void start_conn();
 
 public:
-    APIConnection(std::string url, std::string path);
-    std::string recieve_length(int n);
-    std::string recieve_sentinel(std::string sentinel);
-    std::string recieve_chunked();
-    void send(std::string request);
-    std::string post(std::string body, std::vector<std::pair<std::string, std::string>> headers);
+    APIConnection(string url, string path);
+    string recieve_length(int n);
+    string recieve_sentinel(string sentinel);
+    string recieve_chunked();
+    void send(string request);
+    string post(string body, vector<pair<string, string>> headers);
     ~APIConnection();
 };
 

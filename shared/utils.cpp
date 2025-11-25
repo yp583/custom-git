@@ -1,5 +1,7 @@
 #include "utils.hpp"
 
+using json = nlohmann::json;
+
 float cos_sim(vector<float> a, vector<float> b) {
   float dot = 0.0;
   for (size_t i = 0; i < a.size(); i++) {
@@ -9,7 +11,23 @@ float cos_sim(vector<float> a, vector<float> b) {
   return dot; 
 }
 
-string generate_commit_message(OpenAI_ChatAPI& chat_api, const string& code_changes) {
+vector<float> parse_embedding(const string& response) {
+    try {
+        json j = json::parse(response);
+        vector<float> embedding = j["data"][0]["embedding"].get<vector<float>>();
+        return embedding;
+    } catch (json::exception& e) {
+        cout << "JSON parsing error with response: " << response << endl;
+        return vector<float>();
+    }
+}
+
+string generate_commit_message(OpenAIAPI& chat_api, const string& code_changes) {
+    // TODO: This function is currently non-functional since post_chat is commented out
+    // It uses the chat API which requires a different endpoint than embeddings
+    return "update code"; // Placeholder until chat functionality is implemented
+
+    /* Original implementation - requires post_chat to be functional:
     nlohmann::json messages = {
         {
             {"role", "system"},
@@ -20,6 +38,7 @@ string generate_commit_message(OpenAI_ChatAPI& chat_api, const string& code_chan
             {"content", "Generate a commit message for these code changes:\n" + code_changes}
         }
     };
-    
-    return chat_api.send_chat(messages, 50, 0.3);
+
+    return chat_api.post_chat(messages, 50, 0.3);
+    */
 }

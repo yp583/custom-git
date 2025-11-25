@@ -19,25 +19,14 @@ vector<float> OpenAIAPI::post_embedding(string text) {
     string body = request_body.dump();
     string raw_response = this->api_connection.post(body, headers);
 
-    vector<float> embedding = this->parse_embedding(raw_response);
-    return embedding;
+    // vector<float> embedding = this->parse_embedding(raw_response);
+    return {};
 }
 
-vector<float> OpenAIAPI::parse_embedding(const string& response) {
-    try {
-        json j = json::parse(response);
-        vector<float> embedding = j["data"][0]["embedding"].get<vector<float>>();
-        return embedding;
-    } catch (json::exception& e) {
-        cout << "JSON parsing error with response: " << response << endl;
-        return vector<float>();
-    }
-}
-
-// OpenAI Chat API Implementation
-OpenAI_ChatAPI::OpenAI_ChatAPI(const string api_key)
-    : api_connection("api.openai.com", "/v1/chat/completions"), api_key(api_key) {}
-
+// TODO: post_chat is not currently functional as it requires a different endpoint path
+// The current APIConnection design doesn't support multiple paths per instance
+// Commenting out until needed
+/*
 string OpenAIAPI::post_chat(const nlohmann::json& messages, int max_tokens, float temperature) {
     const vector<pair<string, string>> headers = {
         {"Authorization", "Bearer " + this->api_key},
@@ -53,7 +42,7 @@ string OpenAIAPI::post_chat(const nlohmann::json& messages, int max_tokens, floa
 
     string body = request_body.dump();
     string raw_response = this->api_connection.post(body, headers);
-    
+
     return this->parse_chat_response(raw_response);
 }
 
@@ -61,19 +50,20 @@ string OpenAIAPI::parse_chat_response(const string& response) {
     try {
         json j = json::parse(response);
         string message = j["choices"][0]["message"]["content"].get<string>();
-        
+
         // Trim whitespace and remove quotes if present
         size_t start = message.find_first_not_of(" \t\n\r\"");
         size_t end = message.find_last_not_of(" \t\n\r\"");
-        
+
         if (start == string::npos) return "update code";
-        
+
         return message.substr(start, end - start + 1);
     } catch (json::exception& e) {
         cout << "Chat JSON parsing error with response: " << response << endl;
         return "update code"; // fallback message
     }
 }
+*/
 
 // int main() { 
 //     ifstream env_file("./.env");
