@@ -7,7 +7,7 @@
 
 using namespace std;
 
-AsyncHTTPSConnection::AsyncHTTPSConnection(){
+AsyncHTTPSConnection::AsyncHTTPSConnection(int verbose) : verbose(verbose) {
     this->kqueue_fd = kqueue();
     if (kqueue_fd == -1) {
         perror("kqueue");
@@ -26,7 +26,7 @@ void AsyncHTTPSConnection::post_async(const string& host, const string& path, co
 
     struct hostent* server = gethostbyname(host.c_str());
     if (server == nullptr) {
-        cerr << "No such host: " << host << endl;
+        if (verbose >= 2) cout << "No such host: " << host << endl;
         close(socket_fd);
         return;
     }
@@ -78,7 +78,7 @@ void AsyncHTTPSConnection::run_loop(){
             auto *req = static_cast<HTTPSRequest*>(events[i].udata);
             uint32_t filter = events[i].filter;
 
-            cerr << "Event: state=" << req->state << " filter=" << filter << endl;
+            if (verbose >= 2) cout << "Event: state=" << req->state << " filter=" << filter << endl;
 
             conn_state_t state_before = req->state;
 
@@ -99,11 +99,11 @@ void AsyncHTTPSConnection::run_loop(){
                     handle_read_response(req, filter);
                     break;
                 case DONE:
-                    cerr << "Cleaning up DONE request" << endl;
+                    if (verbose >= 2) cout << "Cleaning up DONE request" << endl;
                     this->cleanup(req);
                     continue;
                 case ERROR:
-                    cerr << "ERROR occurred in state machine" << endl;
+                    if (verbose >= 2) cout << "ERROR occurred in state machine" << endl;
                     this->cleanup(req);
                     continue;
                 default:
@@ -112,10 +112,10 @@ void AsyncHTTPSConnection::run_loop(){
 
             if (state_before != DONE && state_before != ERROR) {
                 if (req->state == DONE) {
-                    cerr << "State transitioned to DONE, cleaning up" << endl;
+                    if (verbose >= 2) cout << "State transitioned to DONE, cleaning up" << endl;
                     this->cleanup(req);
                 } else if (req->state == ERROR) {
-                    cerr << "State transitioned to ERROR, cleaning up" << endl;
+                    if (verbose >= 2) cout << "State transitioned to ERROR, cleaning up" << endl;
                     this->cleanup(req);
                 }
             }
@@ -137,14 +137,14 @@ void AsyncHTTPSConnection::handle_connect(HTTPSRequest* req, int16_t filter) {
                     SSL_set_tlsext_host_name(req->conn, req->host.c_str());
                     req->state = TLS_HANDSHAKE;
                 } else {
-                    cerr << "Socket connection failed with error: " << error << endl;
+                    if (verbose >= 2) cout << "Socket connection failed with error: " << error << endl;
                     req->state = ERROR;
                 }
             }
             break;
         default:
             {
-                cerr << "handle_connect: unexpected filter" << endl;
+                if (verbose >= 2) cout << "handle_connect: unexpected filter" << endl;
                 req->state = ERROR;
             }
             break;
@@ -155,20 +155,20 @@ void AsyncHTTPSConnection::handle_tls(HTTPSRequest* req, int16_t filter) {
         case EVFILT_WRITE:
         {
             int ssl_result = SSL_connect(req->conn);
-            cerr << "SSL_connect result=" << ssl_result << endl;
+            if (verbose >= 2) cout << "SSL_connect result=" << ssl_result << endl;
             if (ssl_result == 1) {
-                cerr << "TLS handshake complete from WRITE event!" << endl;
+                if (verbose >= 2) cout << "TLS handshake complete from WRITE event!" << endl;
                 req->state = WRITING_REQUEST;
             } else {
                 int ssl_error = SSL_get_error(req->conn, ssl_result);
-                cerr << "SSL_get_error=" << ssl_error << " (WANT_READ=2, WANT_WRITE=3)" << endl;
+                if (verbose >= 2) cout << "SSL_get_error=" << ssl_error << " (WANT_READ=2, WANT_WRITE=3)" << endl;
                 if (ssl_error == SSL_ERROR_WANT_READ) {
                     struct kevent events[2];
                     EV_SET(&events[0], req->socket_fd, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
                     EV_SET(&events[1], req->socket_fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, req);
                     kevent(kqueue_fd, events, 2, nullptr, 0, nullptr);
                 } else if (ssl_error != SSL_ERROR_WANT_WRITE) {
-                    cerr << "handle_tls WRITE: SSL error " << ssl_error << endl;
+                    if (verbose >= 2) cout << "handle_tls WRITE: SSL error " << ssl_error << endl;
                     req->state = ERROR;
                 }
             }
@@ -177,9 +177,9 @@ void AsyncHTTPSConnection::handle_tls(HTTPSRequest* req, int16_t filter) {
         case EVFILT_READ:
         {
             int ssl_result = SSL_connect(req->conn);
-            cerr << "SSL_connect (from READ) result=" << ssl_result << endl;
+            if (verbose >= 2) cout << "SSL_connect (from READ) result=" << ssl_result << endl;
             if (ssl_result == 1) {
-                cerr << "TLS handshake complete from READ event!" << endl;
+                if (verbose >= 2) cout << "TLS handshake complete from READ event!" << endl;
                 req->state = WRITING_REQUEST;
                 struct kevent events[2];
                 EV_SET(&events[0], req->socket_fd, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
@@ -193,7 +193,7 @@ void AsyncHTTPSConnection::handle_tls(HTTPSRequest* req, int16_t filter) {
                     EV_SET(&events[1], req->socket_fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, req);
                     kevent(kqueue_fd, events, 2, nullptr, 0, nullptr);
                 } else if (ssl_error != SSL_ERROR_WANT_READ) {
-                    cerr << "handle_tls READ: SSL error " << ssl_error << endl;
+                    if (verbose >= 2) cout << "handle_tls READ: SSL error " << ssl_error << endl;
                     req->state = ERROR;
                 }
             }
@@ -201,7 +201,7 @@ void AsyncHTTPSConnection::handle_tls(HTTPSRequest* req, int16_t filter) {
         }
         default:
             req->state = ERROR;
-            cerr << "handle_tls: unexpected filter" << endl;
+            if (verbose >= 2) cout << "handle_tls: unexpected filter" << endl;
             break;
     }
 }
@@ -210,28 +210,28 @@ void AsyncHTTPSConnection::handle_write(HTTPSRequest* req, int16_t filter) {
     switch (filter) {
         case EVFILT_WRITE:
             {
-                cerr << "handle_write: starting" << endl;
+                if (verbose >= 2) cout << "handle_write: starting" << endl;
                 const char* data = req->send_buffer.c_str() + req->bytes_sent;
                 size_t remaining = req->send_buffer.size() - req->bytes_sent;
 
                 int bytes_written = SSL_write(req->conn, data, remaining);
-                cerr << "SSL_write result=" << bytes_written << endl;
+                if (verbose >= 2) cout << "SSL_write result=" << bytes_written << endl;
 
                 if (bytes_written > 0) {
                     req->bytes_sent += bytes_written;
-                    cerr << "Wrote " << bytes_written << " bytes, total=" << req->bytes_sent << "/" << req->send_buffer.size() << endl;
+                    if (verbose >= 2) cout << "Wrote " << bytes_written << " bytes, total=" << req->bytes_sent << "/" << req->send_buffer.size() << endl;
                     if (req->bytes_sent >= req->send_buffer.size()) {
-                        cerr << "Request fully sent, transitioning to READING_RESPONSE_HEADERS" << endl;
+                        if (verbose >= 2) cout << "Request fully sent, transitioning to READING_RESPONSE_HEADERS" << endl;
                         req->state = READING_RESPONSE_HEADERS;
                         struct kevent events[2];
                         EV_SET(&events[0], req->socket_fd, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
                         EV_SET(&events[1], req->socket_fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, req);
                         int ret = kevent(kqueue_fd, events, 2, nullptr, 0, nullptr);
-                        cerr << "kevent returned " << ret << endl;
+                        if (verbose >= 2) cout << "kevent returned " << ret << endl;
                     }
                 } else {
                     int ssl_error = SSL_get_error(req->conn, bytes_written);
-                    cerr << "SSL_write failed, ssl_error=" << ssl_error << endl;
+                    if (verbose >= 2) cout << "SSL_write failed, ssl_error=" << ssl_error << endl;
                     if (ssl_error == SSL_ERROR_WANT_READ) {
                         struct kevent ev;
                         EV_SET(&ev, req->socket_fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, req);
@@ -240,7 +240,7 @@ void AsyncHTTPSConnection::handle_write(HTTPSRequest* req, int16_t filter) {
                         req->state = ERROR;
                     }
                 }
-                cerr << "handle_write: ending, state=" << req->state << endl;
+                if (verbose >= 2) cout << "handle_write: ending, state=" << req->state << endl;
             }
             break;
         default:
@@ -330,11 +330,11 @@ void AsyncHTTPSConnection::handle_read_response_headers(HTTPSRequest* req, int16
             {
                 char buffer[4096];
                 ssize_t bytes_received = SSL_read(req->conn, &buffer, sizeof(buffer));
-                cerr << "SSL_read (headers) bytes=" << bytes_received << endl;
+                if (verbose >= 2) cout << "SSL_read (headers) bytes=" << bytes_received << endl;
                 if (bytes_received > 0) {
                     req->recv_headers.append(buffer, bytes_received);
-                    cerr << "Headers so far (" << req->recv_headers.size() << " bytes)" << endl;
-                
+                    if (verbose >= 2) cout << "Headers so far (" << req->recv_headers.size() << " bytes)" << endl;
+
                     size_t pos = req->recv_headers.find("\r\n\r\n");
                     if (pos != string::npos) {
                         size_t header_end = pos + 4;
@@ -345,16 +345,16 @@ void AsyncHTTPSConnection::handle_read_response_headers(HTTPSRequest* req, int16
                         req->recv_headers = headers_only;
                         // Don't set recv_body here - parse_response will append it
 
-                        cerr << "=== HEADERS ===\n" << headers_only << "=== END HEADERS ===" << endl;
+                        if (verbose >= 2) cout << "=== HEADERS ===\n" << headers_only << "=== END HEADERS ===" << endl;
 
                         size_t te_pos = headers_only.find("transfer-encoding:");
                         if (te_pos != string::npos) {
                             size_t line_end = headers_only.find("\r\n", te_pos);
                             string te_line = headers_only.substr(te_pos, line_end - te_pos);
-                            cerr << "Found: " << te_line << endl;
+                            if (verbose >= 2) cout << "Found: " << te_line << endl;
                             if (te_line.find("chunked") != string::npos) {
                                 req->transfer_mode = CHUNKED;
-                                cerr << "Using CHUNKED transfer mode" << endl;
+                                if (verbose >= 2) cout << "Using CHUNKED transfer mode" << endl;
                             }
                         }
 
@@ -368,7 +368,7 @@ void AsyncHTTPSConnection::handle_read_response_headers(HTTPSRequest* req, int16
                                 cl_value.erase(0, cl_value.find_first_not_of(" \t"));
                                 req->content_length = stoi(cl_value);
                                 req->transfer_mode = CONTENT_LENGTH;  // Actually set the mode!
-                                cerr << "Using CONTENT_LENGTH mode, length=" << req->content_length << endl;
+                                if (verbose >= 2) cout << "Using CONTENT_LENGTH mode, length=" << req->content_length << endl;
 
                                 if (req->content_length == 0) {
                                     req->state = DONE;
@@ -377,16 +377,16 @@ void AsyncHTTPSConnection::handle_read_response_headers(HTTPSRequest* req, int16
                             }
                         }
                         req->state = READING_RESPONSE;
-                        
+
                         if (!spillover_body.empty()) {
                             parse_response(req, const_cast<char*>(spillover_body.c_str()), spillover_body.size());
                         }
                     }
                 } else {
                     int ssl_error = SSL_get_error(req->conn, bytes_received);
-                    cerr << "SSL_read failed, ssl_error=" << ssl_error << endl;
+                    if (verbose >= 2) cout << "SSL_read failed, ssl_error=" << ssl_error << endl;
                     if (ssl_error != SSL_ERROR_WANT_READ) {
-                        cerr << "Setting ERROR state from handle_read_response_headers" << endl;
+                        if (verbose >= 2) cout << "Setting ERROR state from handle_read_response_headers" << endl;
                         req->state = ERROR;
                     }
                 }
@@ -395,7 +395,7 @@ void AsyncHTTPSConnection::handle_read_response_headers(HTTPSRequest* req, int16
             break;
         default:
             {
-                cerr << "handle_read_response_headers: unexpected filter" << endl;
+                if (verbose >= 2) cout << "handle_read_response_headers: unexpected filter" << endl;
                 req->state = ERROR;
             }
             break;
@@ -409,10 +409,10 @@ void AsyncHTTPSConnection::handle_read_response(HTTPSRequest* req, int16_t filte
             {
                 char buffer[4096];
                 ssize_t bytes_received = SSL_read(req->conn, &buffer, sizeof(buffer));
-                cerr << "SSL_read (body) bytes=" << bytes_received << " transfer_mode=" << req->transfer_mode << endl;
+                if (verbose >= 2) cout << "SSL_read (body) bytes=" << bytes_received << " transfer_mode=" << req->transfer_mode << endl;
                 if (bytes_received > 0) {
                     parse_response(req, buffer, bytes_received);
-                    cerr << "After parse_response, state=" << req->state << endl;
+                    if (verbose >= 2) cout << "After parse_response, state=" << req->state << endl;
                 } else {
                     int ssl_error = SSL_get_error(req->conn, bytes_received);
                     if (ssl_error != SSL_ERROR_WANT_READ) {

@@ -90,6 +90,7 @@ struct HTTPSRequest {
 class AsyncHTTPSConnection {
 private:
     int kqueue_fd;
+    int verbose;
     unordered_map<int, unique_ptr<HTTPSRequest>> reqs;
     void handle_connect(HTTPSRequest* req, int16_t filter);
     void handle_tls(HTTPSRequest* req, int16_t filter);
@@ -99,7 +100,7 @@ private:
     void handle_read_response(HTTPSRequest* req, int16_t filter);
     void cleanup(HTTPSRequest* req);
 public:
-    AsyncHTTPSConnection();
+    AsyncHTTPSConnection(int verbose = 0);
     void post_async(const string& host, const string& path, const string& body, const vector<pair<string, string>>& headers, promise<HTTPSResponse> resp);
     void run_loop();
     ~AsyncHTTPSConnection();

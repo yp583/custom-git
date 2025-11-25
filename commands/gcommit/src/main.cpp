@@ -25,10 +25,30 @@ using json = nlohmann::json;
 
 
 int main(int argc, char *argv[]) {
+  // Parse arguments: [threshold] [-v|-vv]
+  float dist_thresh = 0.5;
+  int verbose = 0;
+
+  for (int i = 1; i < argc; i++) {
+    string arg = argv[i];
+    if (arg == "-vv") {
+      verbose = 2;
+    } else if (arg == "-v") {
+      verbose = 1;
+    } else {
+      // Assume it's the distance threshold
+      try {
+        dist_thresh = stof(arg);
+      } catch (...) {
+        cout << "Usage: " << argv[0] << " [threshold] [-v|-vv]" << endl;
+        return 1;
+      }
+    }
+  }
 
   const char* api_key_env = getenv("OPENAI_API_KEY");
   string api_key = api_key_env ? api_key_env : "";
-  
+
   if (api_key.empty()) {
     cout << "Error: OPENAI_API_KEY not found in .env file or environment variables" << endl;
     return 1;
@@ -39,7 +59,7 @@ int main(int argc, char *argv[]) {
   DiffReader dr(cin);
   dr.ingestDiff();
 
-  cout << "Parsed " << dr.getFiles().size() << " files from git diff" << endl;
+  if (verbose >= 1) cout << "Parsed " << dr.getFiles().size() << " files from git diff" << endl;
 
   vector<DiffChunk> all_chunks;
 
@@ -67,11 +87,11 @@ int main(int argc, char *argv[]) {
   // // Generate embeddings (progress to stderr so it doesn't interfere with JSON output)
   // cerr << "Embedding " << all_chunks.size() << " chunks" << endl;
 
-  AsyncHTTPSConnection conn;
+  AsyncHTTPSConnection conn(verbose);
   AsyncOpenAIAPI openai_api(conn, api_key);
   vector<future<HTTPSResponse>> embedding_resp_futures;
 
-  cout << "Adding Embedding requests to the queue" << endl;
+  if (verbose >= 1) cout << "Adding Embedding requests to the queue" << endl;
 
   for (size_t i = 0; i < all_chunks.size(); i++){
     string content = combineContent(all_chunks[i]);
@@ -92,21 +112,17 @@ int main(int argc, char *argv[]) {
       embedding = {};
     }
     embeddings.push_back(embedding);
-    cout << "Done with Embedding Job" << endl;
+    if (verbose >= 1) cout << "Done with Embedding Job" << endl;
   }
 
   HierachicalClustering hc;
 
-  float dist_thresh = 0.5;
-  if (argc > 1) {
-    dist_thresh = stof(argv[1]);
-  }
-  cout << "Starting hierarchical clustering with distance threshold of " << dist_thresh << " ..." << endl;
+  if (verbose >= 1) cout << "Starting hierarchical clustering with distance threshold of " << dist_thresh << " ..." << endl;
 
   // Clustering
   hc.cluster(embeddings, dist_thresh);
   vector<vector<int>> clusters = hc.get_clusters();
-  cout << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
+  if (verbose >= 1) cout << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
 
   vector<DiffChunk> all_cluster_chunks;
   vector<size_t> cluster_end_idx;
@@ -115,7 +131,7 @@ int main(int argc, char *argv[]) {
   for (size_t i = 0; i < clusters.size(); i++) {
     const vector<int>& cluster = clusters[i];
 
-    cout << "Cluster " << (i + 1) << ":" << endl;
+    if (verbose >= 1) cout << "Cluster " << (i + 1) << ":" << endl;
 
     // Collect chunks for this cluster
     for (int idx: cluster) {
@@ -140,7 +156,7 @@ int main(int argc, char *argv[]) {
       ofstream patch_file(patch_path);
       patch_file << patches[j];
       patch_file.close();
-      cout << "Wrote " << patch_path << endl;
+      if (verbose >= 1) cout << "Wrote " << patch_path << endl;
     }
   }
 }
