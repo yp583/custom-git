@@ -8,6 +8,35 @@ set -e  # Exit on any error
 # Default settings
 DISTANCE_THRESHOLD=0.5
 VERBOSE=false
+STASH_CREATED=false
+ORIGINAL_BRANCH=""
+STAGING_BRANCH=""
+
+# Cleanup function - restores stash even on error
+cleanup() {
+  local exit_code=$?
+
+  # Return to original branch if we switched
+  if [ -n "$ORIGINAL_BRANCH" ] && [ -n "$STAGING_BRANCH" ]; then
+    if git rev-parse --verify "$STAGING_BRANCH" > /dev/null 2>&1; then
+      git checkout "$ORIGINAL_BRANCH" 2>/dev/null || true
+    fi
+  fi
+
+  # Pop the stash if we created one
+  if [ "$STASH_CREATED" = true ]; then
+    echo "Restoring stashed changes..."
+    git stash pop --quiet 2>/dev/null || git stash pop || true
+  fi
+
+  # Clean up temp files
+  rm -f /tmp/git_gcommit_cluster_*.patch
+
+  exit $exit_code
+}
+
+# Set trap to ensure cleanup runs on exit (success, error, or interrupt)
+trap cleanup EXIT INT TERM
 
 # Parse command line arguments
 while [ $# -gt 0 ]; do
@@ -64,22 +93,25 @@ fi
 
 echo "Analyzing staged changes..."
 
+# Save the cached diff BEFORE stashing (stash will clear it)
+CACHED_DIFF=$(git diff --cached)
+
 if [ "$VERBOSE" = true ]; then
   echo "Distance threshold: $DISTANCE_THRESHOLD"
   echo "Executable: $EXECUTABLE"
   echo "Git diff preview:"
-  git diff --cached | head -20
+  echo "$CACHED_DIFF" | head -20
   echo "---"
 fi
 
 # Clean up previous patches
 rm -rf /tmp/patches
 
-# Generate git diff for staged changes and pipe to the clustering tool
+# Generate patches by piping cached diff to the clustering tool
 if [ "$VERBOSE" = true ]; then
-  git diff --cached | "$EXECUTABLE" "$DISTANCE_THRESHOLD"
+  echo "$CACHED_DIFF" | "$EXECUTABLE" "$DISTANCE_THRESHOLD"
 else
-  git diff --cached | "$EXECUTABLE" "$DISTANCE_THRESHOLD" 2>/dev/null
+  echo "$CACHED_DIFF" | "$EXECUTABLE" "$DISTANCE_THRESHOLD" 2>/dev/null
 fi
 
 COMMITS_JSON="/tmp/patches/commits.json"
@@ -127,40 +159,71 @@ if [ "$VERBOSE" = true ]; then
   echo "$JSON_OUTPUT" | jq .
 fi
 
-# For each cluster, create a commit
+# Save current branch name
+ORIGINAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Create a unique staging branch name
+STAGING_BRANCH="gcommit-staging-$(date +%s)"
+
+# Stash ALL changes (staged + unstaged) to get a clean working tree
+# --keep-index is NOT used because we want to stash staged changes too
+echo "Stashing all changes..."
+if git stash push -m "gcommit: auto-stash before staging branch" --include-untracked; then
+  STASH_CREATED=true
+else
+  # If stash fails (nothing to stash), that's okay - continue
+  STASH_CREATED=false
+fi
+
+# Create and switch to staging branch
+echo "Creating staging branch: $STAGING_BRANCH"
+git checkout -b "$STAGING_BRANCH"
+
+# For each cluster, apply its patch and create a commit
 for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
   COMMIT_MESSAGE=$(echo "$JSON_OUTPUT" | jq -r ".[$i].commit_message")
+  PATCH_FILE="/tmp/patches/cluster_$i.patch"
 
   if [ "$VERBOSE" = true ]; then
     echo "Processing cluster $((i + 1))..."
     echo "Commit message: $COMMIT_MESSAGE"
-    echo "Affected files:"
-    echo "$JSON_OUTPUT" | jq -r ".[$i].affected_files[]"
+    echo "Patch file: $PATCH_FILE"
   fi
 
   echo "Cluster $((i + 1)): $COMMIT_MESSAGE"
-  
-  # Create temp files to stage specific changes for this cluster
-  TEMP_PATCH="/tmp/git_gcommit_cluster_$i.patch"
-  
-  # Extract changes for this cluster and create a patch
-  echo "$JSON_OUTPUT" | jq -r ".[$i].changes[] | 
-    if .type == \"insertion\" then 
-      \"+\" + .code 
-    else 
-      \"-\" + .code 
-    end" > "$TEMP_PATCH"
-  
-  # For now, we'll commit all staged changes with the first cluster's message
-  # In a more sophisticated version, we'd selectively stage changes per cluster
-  if [ $i -eq 0 ]; then
+
+  # Check if patch file exists
+  if [ ! -f "$PATCH_FILE" ]; then
+    echo "Warning: Patch file $PATCH_FILE not found, skipping cluster $((i + 1))"
+    continue
+  fi
+
+  # Apply the patch
+  if [ "$VERBOSE" = true ]; then
+    echo "Applying patch..."
+    cat "$PATCH_FILE"
+  fi
+
+  if git apply --check "$PATCH_FILE" 2>/dev/null; then
+    git apply "$PATCH_FILE"
+    git add -A
     git commit -m "$COMMIT_MESSAGE"
     echo "Created commit: $COMMIT_MESSAGE"
-    break
+  else
+    echo "Warning: Could not apply patch for cluster $((i + 1)), skipping"
+    if [ "$VERBOSE" = true ]; then
+      git apply --check "$PATCH_FILE" 2>&1 || true
+    fi
   fi
 done
 
-# Clean up temp files
-rm -f /tmp/git_gcommit_cluster_*.patch
+# Merge staging branch back to original branch
+echo "Merging commits back to $ORIGINAL_BRANCH..."
+git checkout "$ORIGINAL_BRANCH"
+git merge "$STAGING_BRANCH" --no-edit
+
+# Delete the staging branch
+git branch -d "$STAGING_BRANCH"
+STAGING_BRANCH=""  # Clear so cleanup doesn't try to switch again
 
 echo "Smart commit complete!"
