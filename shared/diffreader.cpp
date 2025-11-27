@@ -2,26 +2,30 @@
 #include <vector>
 #include <fstream>
 
-DiffReader::DiffReader(istream& in, bool verbose) 
-    : in(in), 
-      verbose(verbose), 
+DiffReader::DiffReader(istream& in, bool verbose)
+    : in(in),
+      verbose(verbose),
       diff_header_regex(regex("^diff --git a/(.*) b/(.*)")),
-      in_file(false), 
-      in_chunk(false), 
-      curr_line_num(0)
+      in_file(false),
+      in_chunk(false),
+      curr_line_num(0),
+      current_is_deleted(false),
+      current_is_new(false)
 {}
 vector<DiffChunk> DiffReader::getChunks() const {
     return this->chunks;
 }
 
-void DiffReader::ingestDiffLine(string line) {    
+void DiffReader::ingestDiffLine(string line) {
     smatch match;
-    
+
     // Check for new file header
     if (regex_match(line, match, this->diff_header_regex)) {
         // Store filepath, wait for @@ to create DiffFile
         this->current_filepath = match[2].str();
         this->curr_line_num = 0;
+        this->current_is_deleted = false;
+        this->current_is_new = false;
 
         this->in_file = true;
         this->in_chunk = false;
@@ -32,12 +36,34 @@ void DiffReader::ingestDiffLine(string line) {
         return;
     }
 
+    // Check for file deletion marker
+    regex deleted_regex("^deleted file mode");
+    if (this->in_file && regex_search(line, deleted_regex)) {
+        this->current_is_deleted = true;
+        if (this->verbose){
+            cout << "FILE MARKED AS DELETED: " << line << endl;
+        }
+        return;
+    }
+
+    // Check for new file marker
+    regex new_file_regex("^new file mode");
+    if (this->in_file && regex_search(line, new_file_regex)) {
+        this->current_is_new = true;
+        if (this->verbose){
+            cout << "FILE MARKED AS NEW: " << line << endl;
+        }
+        return;
+    }
+
     // Check for chunk header (@@) - create new DiffChunk for each hunk
     if (this->in_file && line.substr(0, 2) == "@@") {
         this->in_chunk = true;
 
         DiffChunk current_chunk = DiffChunk{};
         current_chunk.filepath = this->current_filepath;
+        current_chunk.is_deleted = this->current_is_deleted;
+        current_chunk.is_new = this->current_is_new;
 
         // Parse: @@ -start,old_count +new_start,new_count @@
         regex hunk_regex("^@@ -(\\d+),?(\\d*) \\+(\\d+),?(\\d*) @@");
@@ -118,8 +144,18 @@ string createPatch(DiffChunk chunk, bool include_file_header) {
     string patch;
 
     if (include_file_header) {
-        patch += "--- a/" + chunk.filepath + "\n";
-        patch += "+++ b/" + chunk.filepath + "\n";
+        // New file: first chunk uses /dev/null as source
+        if (chunk.is_new) {
+            patch += "--- /dev/null\n";
+        } else {
+            patch += "--- a/" + chunk.filepath + "\n";
+        }
+        // Deleted file: last chunk uses /dev/null as destination
+        if (chunk.is_deleted) {
+            patch += "+++ /dev/null\n";
+        } else {
+            patch += "+++ b/" + chunk.filepath + "\n";
+        }
     }
 
     // Calculate counts (NO_NEWLINE marker doesn't count as a line)

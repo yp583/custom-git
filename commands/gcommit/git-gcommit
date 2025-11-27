@@ -8,7 +8,6 @@ set -e  # Exit on any error
 # Default settings
 DISTANCE_THRESHOLD=0.5
 VERBOSE=false
-AUTO_CONFIRM=false
 STASH_CREATED=false
 ORIGINAL_BRANCH=""
 STAGING_BRANCH=""
@@ -17,21 +16,23 @@ STAGING_BRANCH=""
 cleanup() {
   local exit_code=$?
 
-  # Return to original branch if we switched
+  # Return to original branch if we switched (only on failure - STAGING_BRANCH is cleared on success)
   if [ -n "$ORIGINAL_BRANCH" ] && [ -n "$STAGING_BRANCH" ]; then
-    # Make sure we're on original branch
     git checkout "$ORIGINAL_BRANCH" 2>/dev/null || true
-    # Delete staging branch if it exists
+    # Delete staging branch on failure
     if git rev-parse --verify "$STAGING_BRANCH" > /dev/null 2>&1; then
       git branch -D "$STAGING_BRANCH" 2>/dev/null || true
     fi
   fi
 
   # Pop the stash if we created one
-  # Use --index to preserve staged vs unstaged separation
+  # Use --index to preserve staged vs unstaged separation (works because HEAD hasn't moved)
   if [ "$STASH_CREATED" = true ]; then
-    echo "Restoring your changes..."
-    git stash pop --index --quiet 2>/dev/null || git stash pop --quiet 2>/dev/null || git stash pop || true
+    echo "Restoring your working tree..."
+    if ! git stash pop --index --quiet 2>/dev/null; then
+      echo "Warning: Could not restore with --index, trying without..."
+      git stash pop --quiet 2>/dev/null || echo "Your changes are in: git stash list"
+    fi
   fi
 
   # Clean up temp files
@@ -50,10 +51,6 @@ while [ $# -gt 0 ]; do
       VERBOSE=true
       shift
       ;;
-    -y|--yes)
-      AUTO_CONFIRM=true
-      shift
-      ;;
     *)
       DISTANCE_THRESHOLD=$1
       shift
@@ -64,13 +61,9 @@ done
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Try to find the executable in multiple locations
+# Find the executable only in $HOME/bin
 EXECUTABLE=""
-if [ -f "$SCRIPT_DIR/build/git_gcommit.o" ]; then
-  EXECUTABLE="$SCRIPT_DIR/build/git_gcommit.o"
-elif [ -f "$(dirname "$0")/git_gcommit.o" ]; then
-  EXECUTABLE="$(dirname "$0")/git_gcommit.o"
-elif [ -f "$HOME/bin/git_gcommit.o" ]; then
+if [ -f "$HOME/bin/git_gcommit.o" ]; then
   EXECUTABLE="$HOME/bin/git_gcommit.o"
 fi
 
@@ -175,12 +168,15 @@ ORIGINAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 STAGING_BRANCH="gcommit-staging-$(date +%s)"
 
 # Stash ALL changes (staged + unstaged) to get a clean working tree
-# --keep-index is NOT used because we want to stash staged changes too
 echo "Stashing all changes..."
-if git stash push -m "gcommit: auto-stash before staging branch" --include-untracked; then
+STASH_COUNT_BEFORE=$(git stash list | wc -l | tr -d ' ')
+git stash push -m "gcommit: auto-stash before staging branch" --include-untracked || true
+STASH_COUNT_AFTER=$(git stash list | wc -l | tr -d ' ')
+
+if [ "$STASH_COUNT_AFTER" -gt "$STASH_COUNT_BEFORE" ]; then
   STASH_CREATED=true
 else
-  # If stash fails (nothing to stash), that's okay - continue
+  # Nothing was actually stashed
   STASH_CREATED=false
 fi
 
@@ -234,40 +230,19 @@ for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
   echo "Created commit: $COMMIT_MESSAGE"
 done
 
-# Show summary of commits created on staging branch
-echo ""
-echo "=== Commits ready on staging branch ==="
-git log --oneline "$ORIGINAL_BRANCH".."$STAGING_BRANCH"
-echo "========================================"
-echo ""
-
-# Ask for confirmation before merging (unless -y flag)
-if [ "$AUTO_CONFIRM" = true ]; then
-  echo "Auto-confirming merge (-y flag)"
-else
-  read -p "Merge these commits to $ORIGINAL_BRANCH? [y/N] " -n 1 -r
-  echo ""
-
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Aborting. Your working tree will be restored to its original state."
-    # Cleanup trap will handle: checkout original, delete staging branch, pop stash
-    exit 0
-  fi
-fi
-
-# User confirmed - merge staging branch back to original branch
-echo "Merging commits back to $ORIGINAL_BRANCH..."
+# Switch back to original branch (don't merge yet)
 git checkout "$ORIGINAL_BRANCH"
-git merge "$STAGING_BRANCH" --no-edit
 
-# Delete the staging branch
-git branch -d "$STAGING_BRANCH"
-
-# Clear STAGING_BRANCH so cleanup doesn't try to delete it again
+# Clear STAGING_BRANCH so cleanup doesn't delete it
+STAGING_BRANCH_NAME="$STAGING_BRANCH"
 STAGING_BRANCH=""
 
-# Note: STASH_CREATED stays true - cleanup will pop the stash
-# This restores any unstaged changes the user had
-# (staged changes are now committed so they won't conflict)
-
-echo "Smart commit complete!"
+# Show summary of commits created on staging branch
+echo ""
+echo "=== Commits ready on staging branch: $STAGING_BRANCH_NAME ==="
+git log --oneline "$ORIGINAL_BRANCH".."$STAGING_BRANCH_NAME"
+echo ""
+echo "To merge: git merge $STAGING_BRANCH_NAME"
+echo "To review: git log -p $ORIGINAL_BRANCH..$STAGING_BRANCH_NAME"
+echo "To delete: git branch -D $STAGING_BRANCH_NAME"
+echo "============================================================="

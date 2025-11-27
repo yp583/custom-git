@@ -40,11 +40,14 @@ vector<DiffChunk> chunkByLines(const DiffChunk &inputChunk, size_t maxChars) {
 
   size_t startLineIdx = 0;
   int cumulative_offset = 0;
+  bool is_first = true;
 
   while (startLineIdx < inputChunk.lines.size()) {
     DiffChunk currentChunk;
     currentChunk.filepath = inputChunk.filepath;
     currentChunk.start = inputChunk.start + cumulative_offset;
+    // Only first chunk gets is_new (triggers file creation)
+    currentChunk.is_new = is_first && inputChunk.is_new;
 
     size_t currentSize = 0;
     size_t currentLineIdx = startLineIdx;
@@ -62,14 +65,19 @@ vector<DiffChunk> chunkByLines(const DiffChunk &inputChunk, size_t maxChars) {
       currentLineIdx++;
     }
 
+    bool is_last = (currentLineIdx >= inputChunk.lines.size());
+    // Only last chunk gets is_deleted (triggers file deletion)
+    currentChunk.is_deleted = is_last && inputChunk.is_deleted;
+
     chunks.push_back(currentChunk);
 
-    if (currentLineIdx >= inputChunk.lines.size()) {
+    if (is_last) {
       break;
     }
 
     cumulative_offset += calculateLineOffset(inputChunk.lines, startLineIdx, currentLineIdx);
     startLineIdx = currentLineIdx;
+    is_first = false;
   }
 
   return chunks;
@@ -192,6 +200,12 @@ vector<DiffChunk> chunkDiff(const ts::Node &node, const DiffChunk &diffChunk,
 
   if (!currentChunk.lines.empty()) {
     newChunks.push_back(fillGapLines(currentChunk, diffChunk.lines));
+  }
+
+  // Assign is_new to first chunk, is_deleted to last chunk
+  if (!newChunks.empty()) {
+    newChunks.front().is_new = diffChunk.is_new;
+    newChunks.back().is_deleted = diffChunk.is_deleted;
   }
 
   return newChunks;

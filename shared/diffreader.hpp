@@ -23,6 +23,8 @@ struct DiffChunk {
     string filepath;
     vector<DiffLine> lines;
     int start = 1;
+    bool is_deleted = false;  // File is being deleted (whole file removal)
+    bool is_new = false;      // File is being created (new file)
 };
 
 
@@ -37,6 +39,8 @@ private:
     bool in_chunk;
     int curr_line_num;
     string current_filepath;
+    bool current_is_deleted;   // Track if current file is being deleted
+    bool current_is_new;       // Track if current file is being created
 
     vector<DiffChunk> chunks;
 
