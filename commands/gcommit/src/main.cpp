@@ -9,15 +9,6 @@
 #include <fstream>
 #include <filesystem>
 #include <unordered_map>
-struct Chunk {
-  string code;
-  vector<float> embedding;
-  
-  string file;
-  int line_number;
-  string language;
-  string type; // "insertion" or "deletion"
-};
 
 using namespace std;
 using json = nlohmann::json;
@@ -70,33 +61,26 @@ int main(int argc, char *argv[]) {
   DiffReader dr(cin);
   dr.ingestDiff();
 
-  if (verbose >= 1) cout << "Parsed " << dr.getFiles().size() << " files from git diff" << endl;
+  if (verbose >= 1) cout << "Parsed " << dr.getChunks().size() << " chunks from git diff" << endl;
 
   vector<DiffChunk> all_chunks;
 
-  for (const DiffFile& file : dr.getFiles()) {
-    string language = detectLanguageFromPath(file.filepath);
-    DiffChunk file_chunk = getDiffContent(file, {});  // All lines - no filtering
+  for (const DiffChunk& chunk : dr.getChunks()) {
+    string language = detectLanguageFromPath(chunk.filepath);
 
     vector<DiffChunk> file_chunks;
 
     if (language != "text") { //use ast for non text files
-      string file_content = combineContent(file_chunk);
+      string file_content = combineContent(chunk);
       ts::Tree tree = codeToTree(file_content, language);
-      file_chunks = chunkDiff(tree.getRootNode(), file_chunk);
+      file_chunks = chunkDiff(tree.getRootNode(), chunk);
     }
     else {
-      file_chunks = chunkByLines(file_chunk);
+      file_chunks = chunkByLines(chunk);
     }
 
     all_chunks.insert(all_chunks.end(), file_chunks.begin(), file_chunks.end());
   }
-
-  // Merge overlapping chunks to maintain non-overlap invariant
-  all_chunks = mergeOverlappingChunks(all_chunks, 3);
-
-  // // Generate embeddings (progress to stderr so it doesn't interfere with JSON output)
-  // cerr << "Embedding " << all_chunks.size() << " chunks" << endl;
 
   AsyncHTTPSConnection conn(verbose);
   AsyncOpenAIAPI openai_api(conn, api_key);
@@ -104,8 +88,12 @@ int main(int argc, char *argv[]) {
 
   if (verbose >= 1) cout << "Adding Embedding requests to the queue" << endl;
 
+  const size_t MAX_EMBEDDING_CHARS = 16000;
   for (size_t i = 0; i < all_chunks.size(); i++){
     string content = combineContent(all_chunks[i]);
+    if (content.size() > MAX_EMBEDDING_CHARS) {
+      content = content.substr(0, MAX_EMBEDDING_CHARS);
+    }
 
     future<HTTPSResponse> resp_future = openai_api.async_embedding(content);
     embedding_resp_futures.push_back(std::move(resp_future));
@@ -153,10 +141,11 @@ int main(int argc, char *argv[]) {
   }
 
   vector<string> patches = createPatches(all_cluster_chunks);
-  vector<vector<string>> clusters_patch_paths(1, vector<string>());
+  vector<vector<string>> clusters_patch_paths;
 
   // Write patches to cluster folders
   for (size_t i = 0; i < cluster_end_idx.size(); i++) {
+    clusters_patch_paths.push_back(vector<string>());  // New vector for each cluster
     string cluster_dir = "/tmp/patches/cluster_" + to_string(i);
     filesystem::create_directories(cluster_dir);
 

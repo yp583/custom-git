@@ -8,6 +8,7 @@ set -e  # Exit on any error
 # Default settings
 DISTANCE_THRESHOLD=0.5
 VERBOSE=false
+AUTO_CONFIRM=false
 STASH_CREATED=false
 ORIGINAL_BRANCH=""
 STAGING_BRANCH=""
@@ -18,15 +19,19 @@ cleanup() {
 
   # Return to original branch if we switched
   if [ -n "$ORIGINAL_BRANCH" ] && [ -n "$STAGING_BRANCH" ]; then
+    # Make sure we're on original branch
+    git checkout "$ORIGINAL_BRANCH" 2>/dev/null || true
+    # Delete staging branch if it exists
     if git rev-parse --verify "$STAGING_BRANCH" > /dev/null 2>&1; then
-      git checkout "$ORIGINAL_BRANCH" 2>/dev/null || true
+      git branch -D "$STAGING_BRANCH" 2>/dev/null || true
     fi
   fi
 
   # Pop the stash if we created one
+  # Use --index to preserve staged vs unstaged separation
   if [ "$STASH_CREATED" = true ]; then
-    echo "Restoring stashed changes..."
-    git stash pop --quiet 2>/dev/null || git stash pop || true
+    echo "Restoring your changes..."
+    git stash pop --index --quiet 2>/dev/null || git stash pop --quiet 2>/dev/null || git stash pop || true
   fi
 
   # Clean up temp files
@@ -43,6 +48,10 @@ while [ $# -gt 0 ]; do
   case "$1" in
     -v|--verbose)
       VERBOSE=true
+      shift
+      ;;
+    -y|--yes)
+      AUTO_CONFIRM=true
       shift
       ;;
     *)
@@ -179,51 +188,86 @@ fi
 echo "Creating staging branch: $STAGING_BRANCH"
 git checkout -b "$STAGING_BRANCH"
 
-# For each cluster, apply its patch and create a commit
+# For each cluster, apply its patches and create a commit
 for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
   COMMIT_MESSAGE=$(echo "$JSON_OUTPUT" | jq -r ".[$i].commit_message")
-  PATCH_FILE="/tmp/patches/cluster_$i.patch"
+
+  # Get patch_paths array for this cluster
+  PATCH_PATHS=$(echo "$JSON_OUTPUT" | jq -r ".[$i].patch_paths[]")
 
   if [ "$VERBOSE" = true ]; then
     echo "Processing cluster $((i + 1))..."
     echo "Commit message: $COMMIT_MESSAGE"
-    echo "Patch file: $PATCH_FILE"
+    echo "Patch paths: $PATCH_PATHS"
   fi
 
   echo "Cluster $((i + 1)): $COMMIT_MESSAGE"
 
-  # Check if patch file exists
-  if [ ! -f "$PATCH_FILE" ]; then
-    echo "Warning: Patch file $PATCH_FILE not found, skipping cluster $((i + 1))"
-    continue
-  fi
-
-  # Apply the patch
-  if [ "$VERBOSE" = true ]; then
-    echo "Applying patch..."
-    cat "$PATCH_FILE"
-  fi
-
-  if git apply --check "$PATCH_FILE" 2>/dev/null; then
-    git apply "$PATCH_FILE"
-    git add -A
-    git commit -m "$COMMIT_MESSAGE"
-    echo "Created commit: $COMMIT_MESSAGE"
-  else
-    echo "Warning: Could not apply patch for cluster $((i + 1)), skipping"
-    if [ "$VERBOSE" = true ]; then
-      git apply --check "$PATCH_FILE" 2>&1 || true
+  # Apply each patch in this cluster
+  for PATCH_FILE in $PATCH_PATHS; do
+    # Check if patch file exists
+    if [ ! -f "$PATCH_FILE" ]; then
+      echo "Error: Patch file $PATCH_FILE not found"
+      exit 1
     fi
-  fi
+
+    # Apply the patch
+    if [ "$VERBOSE" = true ]; then
+      echo "Applying patch: $PATCH_FILE"
+      cat "$PATCH_FILE"
+    fi
+
+    if ! git apply --unidiff-zero --check "$PATCH_FILE" 2>/dev/null; then
+      echo "Error: Could not apply patch $PATCH_FILE"
+      if [ "$VERBOSE" = true ]; then
+        git apply --unidiff-zero --check "$PATCH_FILE" 2>&1 || true
+      fi
+      exit 1
+    fi
+
+    git apply --unidiff-zero "$PATCH_FILE"
+  done
+
+  # Stage and commit all patches for this cluster
+  git add -A
+  git commit -m "$COMMIT_MESSAGE"
+  echo "Created commit: $COMMIT_MESSAGE"
 done
 
-# Merge staging branch back to original branch
+# Show summary of commits created on staging branch
+echo ""
+echo "=== Commits ready on staging branch ==="
+git log --oneline "$ORIGINAL_BRANCH".."$STAGING_BRANCH"
+echo "========================================"
+echo ""
+
+# Ask for confirmation before merging (unless -y flag)
+if [ "$AUTO_CONFIRM" = true ]; then
+  echo "Auto-confirming merge (-y flag)"
+else
+  read -p "Merge these commits to $ORIGINAL_BRANCH? [y/N] " -n 1 -r
+  echo ""
+
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborting. Your working tree will be restored to its original state."
+    # Cleanup trap will handle: checkout original, delete staging branch, pop stash
+    exit 0
+  fi
+fi
+
+# User confirmed - merge staging branch back to original branch
 echo "Merging commits back to $ORIGINAL_BRANCH..."
 git checkout "$ORIGINAL_BRANCH"
 git merge "$STAGING_BRANCH" --no-edit
 
 # Delete the staging branch
 git branch -d "$STAGING_BRANCH"
-STAGING_BRANCH=""  # Clear so cleanup doesn't try to switch again
+
+# Clear STAGING_BRANCH so cleanup doesn't try to delete it again
+STAGING_BRANCH=""
+
+# Note: STASH_CREATED stays true - cleanup will pop the stash
+# This restores any unstaged changes the user had
+# (staged changes are now committed so they won't conflict)
 
 echo "Smart commit complete!"

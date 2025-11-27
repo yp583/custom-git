@@ -11,25 +11,18 @@ using namespace std;
 enum DiffMode {
     EQ = 0,
     INSERTION = 1,
-    DELETION = 2
+    DELETION = 2,
+    NO_NEWLINE = 3
 };
 struct DiffLine {
     DiffMode mode;
     string content;
     int line_num;
 };
-struct DiffFile {
-    string filepath;
-    vector<DiffLine> lines;
-    int old_start = 1;
-    int new_start = 1;
-};
-//same data different purpose
 struct DiffChunk {
     string filepath;
     vector<DiffLine> lines;
-    int old_start = 1;
-    int new_start = 1;
+    int start = 1;
 };
 
 
@@ -45,20 +38,19 @@ private:
     int curr_line_num;
     string current_filepath;
 
-    vector<DiffFile> files;
+    vector<DiffChunk> chunks;
 
     void ingestDiffLine(string line);
 
 public:
     DiffReader(istream& in, bool verbose = false);
-    vector<DiffFile> getFiles() const;
+    vector<DiffChunk> getChunks() const;
     void ingestDiff();
     ~DiffReader();
 };
 
-DiffChunk getDiffContent(DiffFile file, vector<DiffMode> types);
 string combineContent(DiffChunk chunk);
-string createPatch(DiffChunk chunk, int old_offset = 0, int new_offset = 0, bool include_file_header = true);
+string createPatch(DiffChunk chunk, bool include_file_header = true);
 vector<string> createPatches(vector<DiffChunk> chunks);
 
 #endif // DIFFREADER_HPP

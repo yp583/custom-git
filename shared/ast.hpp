@@ -16,8 +16,7 @@ using namespace std;
 vector<DiffChunk> chunkDiff(const ts::Node& node, const DiffChunk& diffChunk, size_t maxChars = 1500);
 ts::Tree codeToTree(const string& code, const string& language);
 string detectLanguageFromPath(const string& filepath);
-vector<DiffChunk> chunkByLines(const DiffChunk& inputChunk, size_t maxChars = 1000, size_t lineOverlap = 2);
+vector<DiffChunk> chunkByLines(const DiffChunk& inputChunk, size_t maxChars = 1000);
 bool isTextFile(const string& filepath);
-vector<DiffChunk> mergeOverlappingChunks(vector<DiffChunk> chunks, int contextLines = 3);
 
 #endif // AST_HPP 
