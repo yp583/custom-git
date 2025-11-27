@@ -145,9 +145,19 @@ int main(int argc, char *argv[]) {
   // UMAP computation for interactive visualization
   vector<UmapPoint> umap_points;
   if (interactive) {
-    if (verbose >= 1) cerr << "Running UMAP dimensionality reduction..." << endl;
-    umap_points = compute_umap(embeddings);
-    if (verbose >= 1) cerr << "UMAP complete." << endl;
+    // UMAP needs at least 3 points to work reliably
+    if (embeddings.size() >= 3) {
+      if (verbose >= 1) cerr << "Running UMAP dimensionality reduction..." << endl;
+      try {
+        umap_points = compute_umap(embeddings);
+        if (verbose >= 1) cerr << "UMAP complete." << endl;
+      } catch (const exception& e) {
+        if (verbose >= 1) cerr << "UMAP failed: " << e.what() << endl;
+        umap_points = {};
+      }
+    } else {
+      if (verbose >= 1) cerr << "Skipping UMAP (need >= 3 chunks, got " << embeddings.size() << ")" << endl;
+    }
   }
 
   // Build chunk_to_cluster lookup
