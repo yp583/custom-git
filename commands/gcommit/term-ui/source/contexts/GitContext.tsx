@@ -44,6 +44,10 @@ export function GitProvider({ children }: GitProviderProps) {
   }, []);
 
   const stashChanges = useCallback(async (): Promise<boolean> => {
+    // Capture staged diff BEFORE stashing (stash clears it)
+    const diff = await state.git.diff(['--cached']);
+    setState(s => ({ ...s, stagedDiff: diff }));
+
     const status = await state.git.status();
 
     // Check if there are any changes to stash (modified, not staged)
@@ -62,7 +66,7 @@ export function GitProvider({ children }: GitProviderProps) {
   const popStash = useCallback(async () => {
     if (state.stashCreated) {
       try {
-        await state.git.stash(['pop']);
+        await state.git.stash(['pop', '--index']);
         setState(s => ({ ...s, stashCreated: false }));
       } catch (err) {
         // Stash may have already been popped or doesn't exist
@@ -125,7 +129,7 @@ export function GitProvider({ children }: GitProviderProps) {
     // Pop stash if we created one
     if (state.stashCreated) {
       try {
-        await state.git.stash(['pop']);
+        await state.git.stash(['pop', '--index']);
       } catch (err) {
         // Stash may not exist
       }
