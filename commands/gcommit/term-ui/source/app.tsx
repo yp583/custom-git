@@ -217,7 +217,7 @@ function AppContent({ threshold, verbose }: Props) {
   useEffect(() => {
     if (phase !== 'done') return;
 
-    // Clean up temp files
+    // Clean up temp files and exit
     const run = async () => {
       try {
         const fs = await import('fs/promises');
@@ -225,6 +225,7 @@ function AppContent({ threshold, verbose }: Props) {
       } catch (err) {
         // Ignore
       }
+      exit();
     };
     run();
   }, [phase]);
