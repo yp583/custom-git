@@ -280,10 +280,13 @@ int main(int argc, char *argv[]) {
       string preview = combineContent(all_chunks[i]);
       if (preview.size() > 100) preview = preview.substr(0, 100) + "...";
 
+      double x = (i < umap_points.size()) ? umap_points[i].x : 0.0;
+      double y = (i < umap_points.size()) ? umap_points[i].y : 0.0;
+
       points_json.push_back({
         {"id", i},
-        {"x", umap_points[i].x},
-        {"y", umap_points[i].y},
+        {"x", x},
+        {"y", y},
         {"cluster_id", chunk_to_cluster[i]},
         {"filepath", all_chunks[i].filepath},
         {"preview", preview}
