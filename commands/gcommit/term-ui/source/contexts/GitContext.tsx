@@ -6,6 +6,7 @@ interface GitState {
   originalBranch: string;
   stagingBranch: string | null;
   stashCreated: boolean;
+  stagedDiff: string;
 }
 
 interface GitContextValue extends GitState {
