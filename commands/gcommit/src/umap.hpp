@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <memory>
 #include "umappp/umappp.hpp"
 #include "knncolle/knncolle.hpp"
 
@@ -33,7 +34,8 @@ inline vector<UmapPoint> compute_umap(const vector<vector<float>>& embeddings, i
   }
 
   // Set up neighbor search with Euclidean distance
-  knncolle::VptreeBuilder<knncolle::EuclideanDistance, int, double, double> vp_builder;
+  auto metric = std::make_shared<knncolle::EuclideanDistance<double, double>>();
+  knncolle::VptreeBuilder<int, double, double> vp_builder(metric);
 
   // Initialize UMAP with 2D output
   size_t out_dim = 2;
@@ -43,10 +45,10 @@ inline vector<UmapPoint> compute_umap(const vector<vector<float>>& embeddings, i
   opt.num_neighbors = min(static_cast<int>(nobs) - 1, num_neighbors);
   opt.num_epochs = num_epochs;
 
-  auto status = umappp::initialize(
+  auto status = umappp::initialize<int, double>(
     ndim, nobs, data.data(), vp_builder, out_dim, umap_coords.data(), opt
   );
-  status.run();
+  status.run(umap_coords.data());
 
   // Convert to UmapPoint vector
   vector<UmapPoint> points(nobs);

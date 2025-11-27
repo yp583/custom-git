@@ -8,6 +8,7 @@ set -e  # Exit on any error
 # Default settings
 DISTANCE_THRESHOLD=0.5
 VERBOSE=false
+INTERACTIVE=false
 STASH_CREATED=false
 ORIGINAL_BRANCH=""
 STAGING_BRANCH=""
@@ -51,7 +52,17 @@ while [ $# -gt 0 ]; do
       VERBOSE=true
       shift
       ;;
+    -i|--interactive)
+      INTERACTIVE=true
+      shift
+      ;;
+    -d|--distance)
+      shift
+      DISTANCE_THRESHOLD=$1
+      shift
+      ;;
     *)
+      # Legacy: bare number is threshold
       DISTANCE_THRESHOLD=$1
       shift
       ;;
@@ -109,11 +120,31 @@ fi
 # Clean up previous patches
 rm -rf /tmp/patches
 
+# Build executable arguments
+EXEC_ARGS="-d $DISTANCE_THRESHOLD"
+if [ "$INTERACTIVE" = true ]; then
+  EXEC_ARGS="$EXEC_ARGS -i"
+fi
+
 # Generate patches by piping cached diff to the clustering tool
 if [ "$VERBOSE" = true ]; then
-  echo "$CACHED_DIFF" | "$EXECUTABLE" "$DISTANCE_THRESHOLD"
+  echo "$CACHED_DIFF" | "$EXECUTABLE" $EXEC_ARGS
 else
-  echo "$CACHED_DIFF" | "$EXECUTABLE" "$DISTANCE_THRESHOLD" 2>/dev/null
+  echo "$CACHED_DIFF" | "$EXECUTABLE" $EXEC_ARGS 2>/dev/null
+fi
+
+# Launch interactive visualization if enabled
+if [ "$INTERACTIVE" = true ]; then
+  TERM_UI_DIR="$HOME/bin/gcommit-term-ui"
+  if [ -f "$TERM_UI_DIR/cli.js" ]; then
+    echo "Launching visualization..."
+    if ! node "$TERM_UI_DIR/cli.js"; then
+      echo "Cancelled by user."
+      exit 1
+    fi
+  else
+    echo "Warning: term-ui not installed. Run: ./scripts/setup.sh"
+  fi
 fi
 
 COMMITS_JSON="/tmp/patches/commits.json"
@@ -217,6 +248,12 @@ for i in $(seq 0 $((CLUSTER_COUNT - 1))); do
       echo "Error: Could not apply patch $PATCH_FILE"
       if [ "$VERBOSE" = true ]; then
         git apply --unidiff-zero --check "$PATCH_FILE" 2>&1 || true
+      fi
+      # Commit any partial changes so they don't follow us back to original branch
+      if ! git diff --quiet || ! git diff --cached --quiet; then
+        git add -A
+        git commit -m "partial: $COMMIT_MESSAGE (incomplete - patch failed)" || true
+        echo "Committed partial changes to staging branch"
       fi
       exit 1
     fi

@@ -185,8 +185,14 @@ int main(int argc, char *argv[]) {
     size_t start_idx = (i == 0) ? 0 : cluster_end_idx[i - 1];
     size_t end_idx = cluster_end_idx[i];
 
+    int patch_num = 0;
     for (size_t j = start_idx; j < end_idx && j < patches.size(); j++) {
-      string patch_path = cluster_dir + "/patch_" + to_string(j - start_idx) + ".patch";
+      // Skip empty patches (e.g., chunks with only NO_NEWLINE markers)
+      if (patches[j].empty()) {
+        if (verbose >= 1) cout << "Skipping empty patch at index " << j << endl;
+        continue;
+      }
+      string patch_path = cluster_dir + "/patch_" + to_string(patch_num++) + ".patch";
       ofstream patch_file(patch_path);
       patch_file << patches[j];
       patch_file.close();
@@ -198,6 +204,11 @@ int main(int argc, char *argv[]) {
   vector<future<string>> message_futures;
   vector<ClusteredCommit> commits;
   for (vector<string>& patch_paths: clusters_patch_paths) {
+    // Skip clusters with no valid patches (all patches were empty)
+    if (patch_paths.empty()) {
+      if (verbose >= 1) cout << "Skipping cluster with no valid patches" << endl;
+      continue;
+    }
     string diff_context = "";
     ClusteredCommit commit{vector<string>(), "empty commit"};
     for (string path: patch_paths) {
@@ -246,9 +257,6 @@ int main(int argc, char *argv[]) {
 
   // Output visualization.json for interactive mode
   if (interactive && !umap_points.empty()) {
-    // Define cluster colors
-    vector<string> colors = {"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F"};
-
     json viz_output;
 
     // Points array
@@ -273,8 +281,7 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < commits.size(); i++) {
       clusters_json.push_back({
         {"id", i},
-        {"message", commits[i].commit_message},
-        {"color", colors[i % colors.size()]}
+        {"message", commits[i].commit_message}
       });
     }
     viz_output["clusters"] = clusters_json;

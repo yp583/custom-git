@@ -167,6 +167,11 @@ string createPatch(DiffChunk chunk, bool include_file_header) {
         // NO_NEWLINE doesn't count
     }
 
+    // Skip empty patches (e.g., chunks with only NO_NEWLINE markers)
+    if (old_count == 0 && new_count == 0) {
+        return "";
+    }
+
     // Hunk header
     patch += "@@ -" + to_string(chunk.start) + "," + to_string(old_count) +
              " +" + to_string(chunk.start) + "," + to_string(new_count) + " @@\n";

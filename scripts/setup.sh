@@ -57,6 +57,24 @@ build_command() {
         return 1
     fi
 
+    # Build and install term-ui if it exists (for gcommit interactive mode)
+    if [ -d "../term-ui" ]; then
+        echo "Building term-ui for $cmd_name..."
+        cd ../term-ui
+        if [ ! -d "node_modules" ]; then
+            npm install || { echo "WARNING: npm install failed for term-ui"; }
+        fi
+        npm run build || { echo "WARNING: term-ui build failed"; }
+
+        # Copy dist to ~/bin/gcommit-term-ui
+        if [ -d "dist" ]; then
+            echo "Installing term-ui to $BIN_DIR/${cmd_name}-term-ui..."
+            rm -rf "$BIN_DIR/${cmd_name}-term-ui"
+            cp -r dist "$BIN_DIR/${cmd_name}-term-ui"
+        fi
+        cd ../build
+    fi
+
     echo "SUCCESS: $cmd_name installed successfully"
 }
 
@@ -118,7 +136,9 @@ for cmd_dir in "$REPO_ROOT/commands"/*; do
 done
 echo ""
 echo "Usage example:"
-echo "  git gcommit        # Use default threshold (0.5)"
-echo "  git gcommit 0.3    # Use custom threshold"
+echo "  git gcommit              # Use default threshold (0.5)"
+echo "  git gcommit -d 0.3       # Use custom threshold"
+echo "  git gcommit -i           # Interactive mode with UMAP visualization"
+echo "  git gcommit -d 0.3 -i    # Both options"
 echo ""
 echo "Note: You may need to restart your terminal or run 'source ~/.zshrc' (or ~/.bashrc)"

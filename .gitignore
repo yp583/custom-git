@@ -11,3 +11,4 @@ build
 *.patch
 _deps
 CLAUDE.md
+FINDINGS.md
