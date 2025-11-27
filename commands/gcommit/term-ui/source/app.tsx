@@ -75,11 +75,9 @@ function AppContent({ threshold, verbose }: Props) {
 
         // Dynamic import to avoid loading execa at top level
         const { execa } = await import('execa');
-        const { simpleGit } = await import('simple-git');
-        const localGit = simpleGit();
 
-        // Get staged diff
-        const diff = await localGit.diff(['--cached']);
+        // Use the diff captured before stashing
+        const diff = git.stagedDiff;
 
         // Spawn C++ binary
         const binaryPath = process.env['HOME'] + '/bin/git_gcommit.o';
