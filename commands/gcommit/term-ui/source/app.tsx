@@ -22,6 +22,32 @@ function AppContent({ threshold, verbose }: Props) {
   const [statusMessage, setStatusMessage] = useState('Initializing...');
   const [stderr, setStderr] = useState<string>('');
 
+  // Global cleanup on process exit/interrupt
+  useEffect(() => {
+    const cleanup = async () => {
+      try {
+        await git.cleanup();
+        const fs = await import('fs/promises');
+        await fs.rm('/tmp/patches', { recursive: true, force: true });
+      } catch {
+        // Ignore cleanup errors
+      }
+    };
+
+    const handleExit = () => { cleanup(); };
+    const handleSignal = () => { cleanup().then(() => process.exit(1)); };
+
+    process.on('exit', handleExit);
+    process.on('SIGINT', handleSignal);
+    process.on('SIGTERM', handleSignal);
+
+    return () => {
+      process.off('exit', handleExit);
+      process.off('SIGINT', handleSignal);
+      process.off('SIGTERM', handleSignal);
+    };
+  }, [git]);
+
   // Phase: Stashing
   useEffect(() => {
     if (phase !== 'stashing') return;
