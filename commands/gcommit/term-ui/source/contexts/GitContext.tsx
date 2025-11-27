@@ -33,6 +33,7 @@ export function GitProvider({ children }: GitProviderProps) {
     originalBranch: '',
     stagingBranch: null,
     stashCreated: false,
+    stagedDiff: '',
   });
 
   // Get current branch on mount
