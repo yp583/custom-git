@@ -15,13 +15,15 @@ using namespace std;
 using json = nlohmann::json;
 
 struct ClusteredCommit {
-  vector<string> patch_paths;
-  string commit_message;
+  int cluster_id;
+  vector<string> patch_files;
+  string message;
 
   json to_json() const {
     return json{
-      {"patch_paths", patch_paths},
-      {"commit_message", commit_message}
+      {"cluster_id", cluster_id},
+      {"patch_files", patch_files},
+      {"message", message}
     };
   }
 };
@@ -47,11 +49,11 @@ int main(int argc, char *argv[]) {
         try {
           dist_thresh = stof(argv[++i]);
         } catch (...) {
-          cout << "Error: -d requires a numeric threshold value" << endl;
+          cerr << "Error: -d requires a numeric threshold value" << endl;
           return 1;
         }
       } else {
-        cout << "Error: -d requires a threshold value" << endl;
+        cerr << "Error: -d requires a threshold value" << endl;
         return 1;
       }
     } else {
@@ -59,7 +61,7 @@ int main(int argc, char *argv[]) {
       try {
         dist_thresh = stof(arg);
       } catch (...) {
-        cout << "Usage: " << argv[0] << " [-d threshold] [-i] [-v|-vv]" << endl;
+        cerr << "Usage: " << argv[0] << " [-d threshold] [-i] [-v|-vv]" << endl;
         return 1;
       }
     }
@@ -69,7 +71,7 @@ int main(int argc, char *argv[]) {
   string api_key = api_key_env ? api_key_env : "";
 
   if (api_key.empty()) {
-    cout << "Error: OPENAI_API_KEY not found in .env file or environment variables" << endl;
+    cerr << "Error: OPENAI_API_KEY not found in .env file or environment variables" << endl;
     return 1;
   }
 
@@ -78,7 +80,7 @@ int main(int argc, char *argv[]) {
   DiffReader dr(cin);
   dr.ingestDiff();
 
-  if (verbose >= 1) cout << "Parsed " << dr.getChunks().size() << " chunks from git diff" << endl;
+  if (verbose >= 1) cerr << "Parsed " << dr.getChunks().size() << " chunks from git diff" << endl;
 
   vector<DiffChunk> all_chunks;
 
@@ -103,7 +105,7 @@ int main(int argc, char *argv[]) {
   AsyncOpenAIAPI openai_api(conn, api_key);
   vector<future<HTTPSResponse>> embedding_resp_futures;
 
-  if (verbose >= 1) cout << "Adding Embedding requests to the queue" << endl;
+  if (verbose >= 1) cerr << "Adding Embedding requests to the queue" << endl;
 
   const size_t MAX_EMBEDDING_CHARS = 16000;
   for (size_t i = 0; i < all_chunks.size(); i++){
@@ -128,24 +130,24 @@ int main(int argc, char *argv[]) {
       embedding = {};
     }
     embeddings.push_back(embedding);
-    if (verbose >= 1) cout << "Done with Embedding Job" << endl;
+    if (verbose >= 1) cerr << "Done with Embedding Job" << endl;
   }
 
   HierachicalClustering hc;
 
-  if (verbose >= 1) cout << "Starting hierarchical clustering with distance threshold of " << dist_thresh << " ..." << endl;
+  if (verbose >= 1) cerr << "Starting hierarchical clustering with distance threshold of " << dist_thresh << " ..." << endl;
 
   // Clustering
   hc.cluster(embeddings, dist_thresh);
   vector<vector<int>> clusters = hc.get_clusters();
-  if (verbose >= 1) cout << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
+  if (verbose >= 1) cerr << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
 
   // UMAP computation for interactive visualization
   vector<UmapPoint> umap_points;
   if (interactive) {
-    if (verbose >= 1) cout << "Running UMAP dimensionality reduction..." << endl;
+    if (verbose >= 1) cerr << "Running UMAP dimensionality reduction..." << endl;
     umap_points = compute_umap(embeddings);
-    if (verbose >= 1) cout << "UMAP complete." << endl;
+    if (verbose >= 1) cerr << "UMAP complete." << endl;
   }
 
   // Build chunk_to_cluster lookup
@@ -163,7 +165,7 @@ int main(int argc, char *argv[]) {
   for (size_t i = 0; i < clusters.size(); i++) {
     const vector<int>& cluster = clusters[i];
 
-    if (verbose >= 1) cout << "Cluster " << (i + 1) << ":" << endl;
+    if (verbose >= 1) cerr << "Cluster " << (i + 1) << ":" << endl;
 
     // Collect chunks for this cluster
     for (int idx: cluster) {
@@ -189,7 +191,7 @@ int main(int argc, char *argv[]) {
     for (size_t j = start_idx; j < end_idx && j < patches.size(); j++) {
       // Skip empty patches (e.g., chunks with only NO_NEWLINE markers)
       if (patches[j].empty()) {
-        if (verbose >= 1) cout << "Skipping empty patch at index " << j << endl;
+        if (verbose >= 1) cerr << "Skipping empty patch at index " << j << endl;
         continue;
       }
       string patch_path = cluster_dir + "/patch_" + to_string(patch_num++) + ".patch";
@@ -197,20 +199,22 @@ int main(int argc, char *argv[]) {
       patch_file << patches[j];
       patch_file.close();
       clusters_patch_paths.back().push_back(patch_path);
-      if (verbose >= 1) cout << "Wrote " << patch_path << endl;
+      if (verbose >= 1) cerr << "Wrote " << patch_path << endl;
     }
   }
 
   vector<future<string>> message_futures;
   vector<ClusteredCommit> commits;
+  int cluster_idx = 0;
   for (vector<string>& patch_paths: clusters_patch_paths) {
     // Skip clusters with no valid patches (all patches were empty)
     if (patch_paths.empty()) {
-      if (verbose >= 1) cout << "Skipping cluster with no valid patches" << endl;
+      if (verbose >= 1) cerr << "Skipping cluster with no valid patches" << endl;
+      cluster_idx++;
       continue;
     }
     string diff_context = "";
-    ClusteredCommit commit{vector<string>(), "empty commit"};
+    ClusteredCommit commit{cluster_idx, vector<string>(), "empty commit"};
     for (string path: patch_paths) {
       ifstream patch_file;
       patch_file.open(path);
@@ -232,30 +236,31 @@ int main(int argc, char *argv[]) {
       }
       patch_file.close();
       diff_context += "\n\n\n";
-      commit.patch_paths.push_back(path);
+      commit.patch_files.push_back(path);
     }
 
     message_futures.push_back(async_generate_commit_message(openai_api, diff_context));
     commits.push_back(commit);
+    cluster_idx++;
   }
 
   openai_api.run_requests();
 
   for (size_t i = 0; i < commits.size(); i++) {
-    commits[i].commit_message = message_futures[i].get();
+    commits[i].message = message_futures[i].get();
   }
 
-  // Serialize and write JSON to file
-  json output = json::array();
+  // Build output JSON for stdout
+  json output;
+
+  // Commits array
+  json commits_json = json::array();
   for (const ClusteredCommit& commit : commits) {
-    output.push_back(commit.to_json());
+    commits_json.push_back(commit.to_json());
   }
+  output["commits"] = commits_json;
 
-  ofstream commits_file("/tmp/patches/commits.json");
-  commits_file << output.dump();
-  commits_file.close();
-
-  // Output visualization.json for interactive mode
+  // Visualization data (only if interactive mode)
   if (interactive && !umap_points.empty()) {
     json viz_output;
 
@@ -276,22 +281,23 @@ int main(int argc, char *argv[]) {
     }
     viz_output["points"] = points_json;
 
-    // Clusters array
+    // Clusters array with messages
     json clusters_json = json::array();
     for (size_t i = 0; i < commits.size(); i++) {
       clusters_json.push_back({
-        {"id", i},
-        {"message", commits[i].commit_message}
+        {"id", commits[i].cluster_id},
+        {"message", commits[i].message}
       });
     }
     viz_output["clusters"] = clusters_json;
 
-    ofstream viz_file("/tmp/patches/visualization.json");
-    viz_file << viz_output.dump(2);
-    viz_file.close();
-
-    if (verbose >= 1) cout << "Wrote visualization.json" << endl;
+    output["visualization"] = viz_output;
   }
+
+  // Output JSON to stdout
+  cout << output.dump() << endl;
+
+  if (verbose >= 1) cerr << "Output complete." << endl;
 
   return 0;
 }

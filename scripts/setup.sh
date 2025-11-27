@@ -21,23 +21,23 @@ fi
 build_command() {
     local cmd_name=$1
     local cmd_dir="$REPO_ROOT/commands/$cmd_name"
-    
+
     echo "Building $cmd_name..."
 
     if [ ! -d "$cmd_dir" ]; then
         echo "ERROR: Command directory $cmd_dir not found"
         return 1
     fi
-    
+
     cd "$cmd_dir"
-    
-    # Create build directory and build
+
+    # Create build directory and build C++ binary
     mkdir -p build
     cd build
     cmake .. || { echo "ERROR: CMake configuration failed for $cmd_name"; return 1; }
     make || { echo "ERROR: Build failed for $cmd_name"; return 1; }
 
-    # Copy executable to ~/bin
+    # Copy C++ executable to ~/bin
     if [ -f "git_${cmd_name}.o" ]; then
         echo "Installing git_${cmd_name}.o to $BIN_DIR..."
         cp "git_${cmd_name}.o" "$BIN_DIR/"
@@ -47,32 +47,37 @@ build_command() {
         return 1
     fi
 
-    # Copy git script to ~/bin
-    if [ -f "../git-$cmd_name" ]; then
-        echo "Installing git-$cmd_name to $BIN_DIR..."
-        cp "../git-$cmd_name" "$BIN_DIR/"
-        chmod +x "$BIN_DIR/git-$cmd_name"
-    else
-        echo "ERROR: Script git-$cmd_name not found"
-        return 1
-    fi
-
-    # Build and install term-ui if it exists (for gcommit interactive mode)
+    # Check if term-ui exists (Node CLI is the entrypoint)
     if [ -d "../term-ui" ]; then
-        echo "Building term-ui for $cmd_name..."
+        echo "Building term-ui (Node CLI entrypoint) for $cmd_name..."
         cd ../term-ui
-        if [ ! -d "node_modules" ]; then
-            npm install || { echo "WARNING: npm install failed for term-ui"; }
-        fi
-        npm run build || { echo "WARNING: term-ui build failed"; }
 
-        # Copy dist to ~/bin/gcommit-term-ui
-        if [ -d "dist" ]; then
-            echo "Installing term-ui to $BIN_DIR/${cmd_name}-term-ui..."
-            rm -rf "$BIN_DIR/${cmd_name}-term-ui"
-            cp -r dist "$BIN_DIR/${cmd_name}-term-ui"
+        # Install dependencies
+        npm install || { echo "ERROR: npm install failed for term-ui"; return 1; }
+
+        # Build the CLI
+        npm run build || { echo "ERROR: term-ui build failed"; return 1; }
+
+        # Copy dist/cli.js as git-gcommit (self-contained bundle)
+        if [ -f "dist/cli.js" ]; then
+            echo "Installing git-$cmd_name (Node CLI) to $BIN_DIR..."
+            cp "dist/cli.js" "$BIN_DIR/git-$cmd_name"
+            chmod +x "$BIN_DIR/git-$cmd_name"
+        else
+            echo "ERROR: dist/cli.js not found"
+            return 1
         fi
         cd ../build
+    else
+        # Fallback: copy bash script if no term-ui (for other commands like mcommit)
+        if [ -f "../git-$cmd_name" ]; then
+            echo "Installing git-$cmd_name to $BIN_DIR..."
+            cp "../git-$cmd_name" "$BIN_DIR/"
+            chmod +x "$BIN_DIR/git-$cmd_name"
+        else
+            echo "ERROR: Script git-$cmd_name not found"
+            return 1
+        fi
     fi
 
     echo "SUCCESS: $cmd_name installed successfully"
@@ -138,7 +143,6 @@ echo ""
 echo "Usage example:"
 echo "  git gcommit              # Use default threshold (0.5)"
 echo "  git gcommit -d 0.3       # Use custom threshold"
-echo "  git gcommit -i           # Interactive mode with UMAP visualization"
-echo "  git gcommit -d 0.3 -i    # Both options"
+echo "  git gcommit -v           # Verbose output"
 echo ""
 echo "Note: You may need to restart your terminal or run 'source ~/.zshrc' (or ~/.bashrc)"
