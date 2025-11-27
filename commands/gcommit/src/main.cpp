@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
   output["commits"] = commits_json;
 
   // Visualization data (only if interactive mode)
-  if (interactive && !umap_points.empty()) {
+  if (interactive) {
     json viz_output;
 
     // Points array
