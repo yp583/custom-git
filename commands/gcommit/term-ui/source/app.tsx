@@ -203,9 +203,12 @@ function AppContent({ threshold, verbose }: Props) {
     const run = async () => {
       try {
         await git.cleanup();
+        const fs = await import('fs/promises');
+        await fs.rm('/tmp/patches', { recursive: true, force: true });
       } catch (err) {
         // Ignore cleanup errors
       }
+      exit();
     };
     run();
   }, [phase]);
