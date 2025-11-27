@@ -254,7 +254,7 @@ function AppContent({ threshold, verbose }: Props) {
     );
   }
 
-  if (phase === 'visualization' && processingResult) {
+  if (phase === 'visualization' && processingResult?.visualization) {
     return (
       <Box flexDirection="column">
         <ScatterPlot points={processingResult.visualization.points} />
