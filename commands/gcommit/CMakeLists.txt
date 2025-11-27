@@ -69,6 +69,14 @@ CPMAddPackage(
   GITHUB_REPOSITORY nlohmann/json
 )
 
+# Add umappp for UMAP dimensionality reduction
+CPMAddPackage(
+  NAME umappp
+  GIT_REPOSITORY https://github.com/libscran/umappp
+  GIT_TAG master
+  OPTIONS "UMAPPP_FETCH_EXTERN ON"
+)
+
 # Find OpenSSL
 find_package(OpenSSL REQUIRED)
 
@@ -120,4 +128,5 @@ target_include_directories(git_gcommit.o PRIVATE
 # Link the executable to the shared library
 target_link_libraries(git_gcommit.o
     custom_git_shared
+    libscran::umappp
 ) 

@@ -3,6 +3,7 @@
 #include "utils.hpp"
 #include "hierarchal.hpp"
 #include "diffreader.hpp"
+#include "umap.hpp"
 #include <regex>
 #include <set>
 #include <vector>
@@ -27,9 +28,10 @@ struct ClusteredCommit {
 
 
 int main(int argc, char *argv[]) {
-  // Parse arguments: [threshold] [-v|-vv]
+  // Parse arguments: [-d threshold] [-i] [-v|-vv]
   float dist_thresh = 0.5;
   int verbose = 0;
+  bool interactive = false;
 
   for (int i = 1; i < argc; i++) {
     string arg = argv[i];
@@ -37,12 +39,27 @@ int main(int argc, char *argv[]) {
       verbose = 2;
     } else if (arg == "-v") {
       verbose = 1;
+    } else if (arg == "-i") {
+      interactive = true;
+    } else if (arg == "-d") {
+      // -d requires a following argument for threshold
+      if (i + 1 < argc) {
+        try {
+          dist_thresh = stof(argv[++i]);
+        } catch (...) {
+          cout << "Error: -d requires a numeric threshold value" << endl;
+          return 1;
+        }
+      } else {
+        cout << "Error: -d requires a threshold value" << endl;
+        return 1;
+      }
     } else {
-      // Assume it's the distance threshold
+      // Legacy: assume bare number is threshold for backwards compatibility
       try {
         dist_thresh = stof(arg);
       } catch (...) {
-        cout << "Usage: " << argv[0] << " [threshold] [-v|-vv]" << endl;
+        cout << "Usage: " << argv[0] << " [-d threshold] [-i] [-v|-vv]" << endl;
         return 1;
       }
     }
@@ -122,6 +139,22 @@ int main(int argc, char *argv[]) {
   hc.cluster(embeddings, dist_thresh);
   vector<vector<int>> clusters = hc.get_clusters();
   if (verbose >= 1) cout << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
+
+  // UMAP computation for interactive visualization
+  vector<UmapPoint> umap_points;
+  if (interactive) {
+    if (verbose >= 1) cout << "Running UMAP dimensionality reduction..." << endl;
+    umap_points = compute_umap(embeddings);
+    if (verbose >= 1) cout << "UMAP complete." << endl;
+  }
+
+  // Build chunk_to_cluster lookup
+  vector<int> chunk_to_cluster(all_chunks.size(), -1);
+  for (size_t i = 0; i < clusters.size(); i++) {
+    for (int idx : clusters[i]) {
+      chunk_to_cluster[idx] = static_cast<int>(i);
+    }
+  }
 
   vector<DiffChunk> all_cluster_chunks;
   vector<size_t> cluster_end_idx;
@@ -210,6 +243,48 @@ int main(int argc, char *argv[]) {
   ofstream commits_file("/tmp/patches/commits.json");
   commits_file << output.dump();
   commits_file.close();
+
+  // Output visualization.json for interactive mode
+  if (interactive && !umap_points.empty()) {
+    // Define cluster colors
+    vector<string> colors = {"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F"};
+
+    json viz_output;
+
+    // Points array
+    json points_json = json::array();
+    for (size_t i = 0; i < all_chunks.size(); i++) {
+      string preview = combineContent(all_chunks[i]);
+      if (preview.size() > 100) preview = preview.substr(0, 100) + "...";
+
+      points_json.push_back({
+        {"id", i},
+        {"x", umap_points[i].x},
+        {"y", umap_points[i].y},
+        {"cluster_id", chunk_to_cluster[i]},
+        {"filepath", all_chunks[i].filepath},
+        {"preview", preview}
+      });
+    }
+    viz_output["points"] = points_json;
+
+    // Clusters array
+    json clusters_json = json::array();
+    for (size_t i = 0; i < commits.size(); i++) {
+      clusters_json.push_back({
+        {"id", i},
+        {"message", commits[i].commit_message},
+        {"color", colors[i % colors.size()]}
+      });
+    }
+    viz_output["clusters"] = clusters_json;
+
+    ofstream viz_file("/tmp/patches/visualization.json");
+    viz_file << viz_output.dump(2);
+    viz_file.close();
+
+    if (verbose >= 1) cout << "Wrote visualization.json" << endl;
+  }
 
   return 0;
 }
