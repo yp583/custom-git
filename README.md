@@ -2,11 +2,20 @@
 
 A collection of custom git commands that extend Git's functionality with AI-powered tools and automation.
 
-## Quick Start
+## Installation
+
+### Homebrew (Recommended)
+
+```bash
+brew tap yp583/custom-git
+brew install custom-git
+```
+
+### Manual Installation
 
 1. **Clone the repository:**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/yp583/custom-git.git
    cd custom-git
    ```
 
@@ -15,84 +24,94 @@ A collection of custom git commands that extend Git's functionality with AI-powe
    ./scripts/setup.sh
    ```
 
-3. **Start using the commands:**
-   ```bash
-   git mcommit        # Simple AI commit message generation
-   git gcommit        # Advanced diff clustering (⚠️ UNSTABLE)
-   git gcommit 0.3    # Custom similarity threshold
-   ```
+## Quick Start
+
+```bash
+git mcommit           # Simple AI commit message generation
+git gcommit           # Smart commit clustering with interactive UI
+git gcommit -d 0.3    # Custom similarity threshold
+```
+
+## Requirements
+
+Set the `OPENAI_API_KEY` environment variable:
+
+```bash
+export OPENAI_API_KEY=your_openai_api_key_here
+```
 
 ## Available Commands
 
 ### `git mcommit` - AI Commit Message Generator
-A simple and reliable tool that generates commit messages for your staged changes using AI.
 
-**Features:**
-- Generates commit messages for staged changes using OpenAI Chat API
-- Simple, focused workflow - works only with already staged changes
-- Reliable fallback to basic commit if AI fails
-- Lightweight and fast
+Generates a single commit message for staged changes using AI.
 
 **Usage:**
 ```bash
-git add .           # Stage your changes first
-git mcommit         # Generate AI commit message and commit
+git add .              # Stage your changes first
+git mcommit            # Generate AI commit message and commit
+git mcommit -i         # Edit message in vim before committing
+git mcommit -h         # Show help
 ```
 
 **Workflow:**
-1. Stage your changes manually (`git add`)
-2. Run `git mcommit` to generate AI commit message
-3. Creates a single commit with AI-generated message
+1. Stage changes with `git add`
+2. Run `git mcommit` - AI generates commit message
+3. Review and confirm (y/n)
+4. Commit is created
 
-### `git gcommit` - Smart Git Commit Tool ⚠️ **IN PROGRESS**
-An advanced commit workflow tool that stages changes, analyzes them using AI, and creates multiple commits automatically.
+### `git gcommit` - Smart Commit Clustering
 
-> **⚠️ WARNING**: This command is currently unstable and experimental. Use with caution in production repositories. Consider using `git mcommit` for reliable AI-powered commits.
+Clusters staged changes by semantic similarity and creates separate commits for each cluster, with an interactive terminal UI to review before applying.
 
 **Features:**
-- Automatically stages all changes (`git add .`)
-- Analyzes staged changes using tree-sitter semantic parsing
-- Clusters similar changes using AI embeddings and hierarchical clustering
-- Generates commit messages using OpenAI Chat API
-- Creates multiple commits automatically based on change clusters
-- Fallback to simple commit if AI APIs fail
+- Tree-sitter AST parsing for semantic code analysis
+- OpenAI embeddings + hierarchical clustering
+- Interactive terminal UI with diff viewer and scatter plot visualization
+- Review and navigate commits before applying
 
 **Usage:**
 ```bash
-git gcommit          # Stage all changes and create smart commits (default threshold 0.5)
-git gcommit 0.3      # Use custom similarity threshold (0.0-1.0)
+git gcommit              # Default threshold (0.5)
+git gcommit -d 0.3       # Lower threshold = more granular clusters
+git gcommit -v           # Verbose output
+git gcommit -h           # Show help
 ```
 
-**Workflow:**
-1. Stages all changes in working directory
-2. Extracts and clusters code changes by similarity
-3. Generates descriptive commit messages for each cluster
-4. Creates multiple commits automatically
+**Interactive Controls:**
+| Key | Action |
+|-----|--------|
+| `TAB` | Switch between file tree and diff panel |
+| `j/k` | Navigate files / scroll diff |
+| `Shift+H/L` | Navigate between commits |
+| `v` | Toggle scatter plot / diff view |
+| `a` | Apply all commits |
+| `q` | Cancel and quit |
 
-**Requirements:**
-- OpenAI API key (set in `.env` file: `OPENAI_API_KEY=your_key_here`)
-- CMake, OpenSSL
+**Workflow:**
+1. Stage changes with `git add`
+2. Run `git gcommit` - AI clusters and generates messages
+3. Review commits in interactive UI
+4. Press `a` to apply or `q` to cancel
+
+**Supported Languages:** Python, C++, Java, JavaScript, Go
 
 ## Repository Structure
 
 ```
 custom-git/
-├── commands/           # Individual command implementations
-│   ├── mcommit/       # Simple AI commit message generator
-│   │   ├── src/       # C++ source files
-│   │   ├── build/     # Build artifacts (generated)
-│   │   ├── CMakeLists.txt
-│   │   └── git-mcommit
-│   └── gcommit/       # Advanced commit clustering (unstable)
-│       ├── src/       # C++ source files
-│       ├── build/     # Build artifacts (generated)
-│       ├── CMakeLists.txt
-│       └── git-gcommit
-├── shared/            # Shared libraries (AI APIs, utilities)
-├── scripts/           # Setup and build scripts
-│   ├── setup.sh      # Full installation script
-│   └── build_all.sh  # Build all commands (dev)
-└── README.md
+├── commands/
+│   ├── mcommit/           # Simple AI commit
+│   │   ├── src/           # C++ source
+│   │   └── git-mcommit    # Bash wrapper
+│   └── gcommit/           # Smart commit clustering
+│       ├── src/           # C++ clustering engine
+│       └── terminal-ui/   # Node.js interactive UI (Ink)
+├── shared/                # Shared C++ libraries (OpenAI API, tree-sitter)
+├── scripts/
+│   ├── setup.sh           # Build + install
+│   └── build_all.sh       # Build only
+└── Formula/               # Homebrew formula
 ```
 
 ## Development
@@ -123,17 +142,3 @@ git diff HEAD^^^..HEAD | ./build/git_gcommit.o 0.5
 3. Create a `git-mycommand` script that calls your executable
 
 4. Run `./scripts/setup.sh` to build and install all commands
-
-## Environment Setup
-
-```bash
-export OPENAI_API_KEY=your_openai_api_key_here
-```
-
-## TODOs
-- make a message for each cluster [DONE]
-- make a terminal frontend
-   - shows UMAP or TSNE of embeddings and clustering by color and a legend for each color and message
-   - make an interactive ui to edit the clusters, for each cluster see the message, the diff from this and prev clusters
-      - involves making a staging branch applying each patch and commiting after each cluster
-      - then the interactive ui can be a git diff on staging branch
