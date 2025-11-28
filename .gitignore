@@ -5,8 +5,6 @@
 compile_commands.json
 node_modules
 tree-sitter*
-package-lock.json
-package.json
 build
 *.o
 *.out
