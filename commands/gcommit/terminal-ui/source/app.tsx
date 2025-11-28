@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { Spinner } from '@inkjs/ui';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { GitProvider, useGit } from './contexts/GitContext.js';
 import FileTree from './components/FileTree.js';
 import DiffViewer from './components/DiffViewer.js';
@@ -105,8 +107,9 @@ function AppContent({ threshold, verbose }: Props) {
         // Use the diff captured before stashing
         const diff = git.stagedDiff;
 
-        // Spawn C++ binary
-        const binaryPath = process.env['HOME'] + '/bin/git_gcommit.o';
+        // Spawn C++ binary (find it relative to this script's location)
+        const scriptDir = dirname(fileURLToPath(import.meta.url));
+        const binaryPath = join(scriptDir, 'git_gcommit.o');
         const args = ['-d', String(threshold), '-i'];
         if (verbose) args.push('-v');
 
