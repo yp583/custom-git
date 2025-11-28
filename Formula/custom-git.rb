@@ -18,8 +18,9 @@ class CustomGit < Formula
     cd "commands/gcommit" do
       system "cmake", "-S", ".", "-B", "build",
              "-DCMAKE_BUILD_TYPE=Release",
+             "-DCMAKE_VERBOSE_MAKEFILE=ON",
              "-DOPENSSL_ROOT_DIR=#{Formula["openssl@3"].opt_prefix}"
-      system "cmake", "--build", "build"
+      system "cmake", "--build", "build", "--verbose"
       bin.install "build/git_gcommit.o"
     end
 
@@ -34,8 +35,9 @@ class CustomGit < Formula
     cd "commands/mcommit" do
       system "cmake", "-S", ".", "-B", "build",
              "-DCMAKE_BUILD_TYPE=Release",
+             "-DCMAKE_VERBOSE_MAKEFILE=ON",
              "-DOPENSSL_ROOT_DIR=#{Formula["openssl@3"].opt_prefix}"
-      system "cmake", "--build", "build"
+      system "cmake", "--build", "build", "--verbose"
       bin.install "build/git_mcommit.o"
       bin.install "git-mcommit"
     end
