@@ -158,13 +158,15 @@ string createPatch(DiffChunk chunk, bool include_file_header) {
     }
 
     int old_count = 0, new_count = 0;
+    bool has_changes = false;
     for (const DiffLine& line : chunk.lines) {
         if (line.mode == EQ)             { old_count++; new_count++; }
-        else if (line.mode == DELETION)  { old_count++; }
-        else if (line.mode == INSERTION) { new_count++; }
+        else if (line.mode == DELETION)  { old_count++; has_changes = true; }
+        else if (line.mode == INSERTION) { new_count++; has_changes = true; }
     }
 
-    if (old_count == 0 && new_count == 0) {
+    // Skip chunks with no actual changes (only context lines)
+    if (!has_changes) {
         return "";
     }
 

@@ -5,6 +5,8 @@ class CustomGit < Formula
   sha256 "099edfa532b2fce9adca48e647921afa433e04c451751febf1f22f4bd7f5e085"
   license "MIT"
 
+  head "https://github.com/yp583/custom-git.git", branch: "main"
+
   depends_on "cmake" => :build
   depends_on "node"
   depends_on "openssl@3"
