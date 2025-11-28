@@ -19,24 +19,20 @@ vector<DiffChunk> DiffReader::getChunks() const {
 void DiffReader::ingestDiffLine(string line) {
     smatch match;
 
-    // Check for new file header
     if (regex_match(line, match, this->diff_header_regex)) {
-        // Store filepath, wait for @@ to create DiffFile
+        this->current_old_filepath = match[1].str();
         this->current_filepath = match[2].str();
         this->curr_line_num = 0;
         this->current_is_deleted = false;
         this->current_is_new = false;
-
         this->in_file = true;
         this->in_chunk = false;
-
         if (this->verbose){
             cout << "LINE WAS NEW FILE: " << line << endl;
         }
         return;
     }
 
-    // Check for file deletion marker
     regex deleted_regex("^deleted file mode");
     if (this->in_file && regex_search(line, deleted_regex)) {
         this->current_is_deleted = true;
@@ -46,7 +42,6 @@ void DiffReader::ingestDiffLine(string line) {
         return;
     }
 
-    // Check for new file marker
     regex new_file_regex("^new file mode");
     if (this->in_file && regex_search(line, new_file_regex)) {
         this->current_is_new = true;
@@ -56,16 +51,15 @@ void DiffReader::ingestDiffLine(string line) {
         return;
     }
 
-    // Check for chunk header (@@) - create new DiffChunk for each hunk
     if (this->in_file && line.substr(0, 2) == "@@") {
         this->in_chunk = true;
 
         DiffChunk current_chunk = DiffChunk{};
         current_chunk.filepath = this->current_filepath;
+        current_chunk.old_filepath = this->current_old_filepath;
         current_chunk.is_deleted = this->current_is_deleted;
         current_chunk.is_new = this->current_is_new;
 
-        // Parse: @@ -start,old_count +new_start,new_count @@
         regex hunk_regex("^@@ -(\\d+),?(\\d*) \\+(\\d+),?(\\d*) @@");
         smatch m;
         if (regex_search(line, m, hunk_regex)) {
@@ -80,7 +74,6 @@ void DiffReader::ingestDiffLine(string line) {
         return;
     }
 
-    // Process diff lines if we're in a chunk
     if (this->in_file && this->in_chunk && !this->chunks.empty()) {
         DiffLine dline;
         dline.content = line.substr(1);
@@ -98,7 +91,7 @@ void DiffReader::ingestDiffLine(string line) {
             dline.mode = EQ;
         } else if (line[0] == '\\') {
             dline.mode = NO_NEWLINE;
-            dline.content = line;  // Keep full line for "\ No newline at end of file"
+            dline.content = line;
         }
 
         this->chunks.back().lines.push_back(dline);
@@ -128,7 +121,7 @@ int getNumLines(string filepath) {
 
     if (!rFile.is_open()) {
         cerr << "Error opening file!" << endl;
-        return -1;  // Use -1 for error (0 could be valid)
+        return -1;
     }
 
     int count = 0;
@@ -144,13 +137,19 @@ string createPatch(DiffChunk chunk, bool include_file_header) {
     string patch;
 
     if (include_file_header) {
-        // New file: first chunk uses /dev/null as source
+        bool is_rename = (chunk.old_filepath != chunk.filepath) && !chunk.is_new && !chunk.is_deleted;
+
+        if (is_rename) {
+            patch += "diff --git a/" + chunk.old_filepath + " b/" + chunk.filepath + "\n";
+            patch += "rename from " + chunk.old_filepath + "\n";
+            patch += "rename to " + chunk.filepath + "\n";
+        }
+
         if (chunk.is_new) {
             patch += "--- /dev/null\n";
         } else {
-            patch += "--- a/" + chunk.filepath + "\n";
+            patch += "--- a/" + chunk.old_filepath + "\n";
         }
-        // Deleted file: last chunk uses /dev/null as destination
         if (chunk.is_deleted) {
             patch += "+++ /dev/null\n";
         } else {
@@ -158,31 +157,26 @@ string createPatch(DiffChunk chunk, bool include_file_header) {
         }
     }
 
-    // Calculate counts (NO_NEWLINE marker doesn't count as a line)
     int old_count = 0, new_count = 0;
     for (const DiffLine& line : chunk.lines) {
         if (line.mode == EQ)             { old_count++; new_count++; }
         else if (line.mode == DELETION)  { old_count++; }
         else if (line.mode == INSERTION) { new_count++; }
-        // NO_NEWLINE doesn't count
     }
 
-    // Skip empty patches (e.g., chunks with only NO_NEWLINE markers)
     if (old_count == 0 && new_count == 0) {
         return "";
     }
 
-    // Hunk header
     patch += "@@ -" + to_string(chunk.start) + "," + to_string(old_count) +
              " +" + to_string(chunk.start) + "," + to_string(new_count) + " @@\n";
 
-    // Lines with prefixes
     for (const DiffLine& line : chunk.lines) {
         switch (line.mode) {
             case EQ:        patch += " " + line.content + "\n"; break;
             case INSERTION: patch += "+" + line.content + "\n"; break;
             case DELETION:  patch += "-" + line.content + "\n"; break;
-            case NO_NEWLINE: patch += line.content + "\n"; break;  // Output as-is (already has \)
+            case NO_NEWLINE: patch += line.content + "\n"; break;
         }
     }
 
@@ -191,8 +185,19 @@ string createPatch(DiffChunk chunk, bool include_file_header) {
 
 vector<string> createPatches(vector<DiffChunk> chunks) {
     vector<string> patches;
+    unordered_map<string, string> renamed_files;
 
-    for (const DiffChunk& chunk : chunks) {
+    for (DiffChunk chunk : chunks) {
+        auto it = renamed_files.find(chunk.old_filepath);
+        if (it != renamed_files.end()) {
+            chunk.old_filepath = it->second;
+            chunk.filepath = it->second;
+        }
+
+        if (chunk.old_filepath != chunk.filepath && !chunk.is_new && !chunk.is_deleted) {
+            renamed_files[chunk.old_filepath] = chunk.filepath;
+        }
+
         patches.push_back(createPatch(chunk, true));
     }
 

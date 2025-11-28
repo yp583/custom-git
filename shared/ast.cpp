@@ -45,6 +45,7 @@ vector<DiffChunk> chunkByLines(const DiffChunk &inputChunk, size_t maxChars) {
   while (startLineIdx < inputChunk.lines.size()) {
     DiffChunk currentChunk;
     currentChunk.filepath = inputChunk.filepath;
+    currentChunk.old_filepath = inputChunk.old_filepath;
     currentChunk.start = inputChunk.start + cumulative_offset;
     // Only first chunk gets is_new (triggers file creation)
     currentChunk.is_new = is_first && inputChunk.is_new;
@@ -150,6 +151,7 @@ vector<DiffChunk> chunkDiff(const ts::Node &node, const DiffChunk &diffChunk,
   vector<DiffChunk> newChunks;
   DiffChunk currentChunk;
   currentChunk.filepath = diffChunk.filepath;
+  currentChunk.old_filepath = diffChunk.old_filepath;
   currentChunk.start = diffChunk.start;
   size_t currentChunkSize = 0;
   bool currentChunkStartSet = false;
@@ -169,6 +171,7 @@ vector<DiffChunk> chunkDiff(const ts::Node &node, const DiffChunk &diffChunk,
         newChunks.push_back(fillGapLines(currentChunk, diffChunk.lines));
         currentChunk = DiffChunk();
         currentChunk.filepath = diffChunk.filepath;
+        currentChunk.old_filepath = diffChunk.old_filepath;
         currentChunkSize = 0;
         currentChunkStartSet = false;
       }
@@ -178,6 +181,7 @@ vector<DiffChunk> chunkDiff(const ts::Node &node, const DiffChunk &diffChunk,
       newChunks.push_back(fillGapLines(currentChunk, diffChunk.lines));
       currentChunk = DiffChunk();
       currentChunk.filepath = diffChunk.filepath;
+      currentChunk.old_filepath = diffChunk.old_filepath;
       currentChunk.lines = childLines;
       currentChunkSize = childSize;
 

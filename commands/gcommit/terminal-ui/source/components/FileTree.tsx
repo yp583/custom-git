@@ -11,10 +11,11 @@ type Props = {
 export default function FileTree({files, focused, maxHeight = 20, onFileSelect}: Props) {
 	const [selectedIndex, setSelectedIndex] = useState(0);
 
-	// Reset selection when files change
+	// Reset selection when files actually change (not just array reference)
+	const filesKey = files.join(',');
 	useEffect(() => {
 		setSelectedIndex(0);
-	}, [files]);
+	}, [filesKey]);
 
 	// Notify parent when selection changes
 	useEffect(() => {

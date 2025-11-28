@@ -64,20 +64,28 @@ export function GitProvider({ children }: GitProviderProps) {
   }, [state.git]);
 
   const popStash = useCallback(async () => {
-    if (state.stashCreated) {
+    if (!state.stashCreated) return;
+
+    try {
+      await state.git.stash(['pop', '--index']);
+    } catch (err) {
+      // --index can fail with renames; fallback to pop without --index
       try {
-        await state.git.stash(['pop', '--index']);
-        setState(s => ({ ...s, stashCreated: false }));
-      } catch (err) {
-        // Stash may have already been popped or doesn't exist
-        console.error('Failed to pop stash:', err);
+        await state.git.stash(['pop']);
+      } catch (fallbackErr) {
+        console.error('Failed to pop stash:', fallbackErr);
       }
     }
+
+    setState(s => ({ ...s, stashCreated: false }));
   }, [state.git, state.stashCreated]);
 
   const createStagingBranch = useCallback(async (): Promise<string> => {
     const branchName = `gcommit-staging-${Date.now()}`;
     await state.git.checkoutLocalBranch(branchName);
+    // Reset staged changes so files are at their original locations
+    // This allows patches (including renames) to be applied cleanly
+    await state.git.reset(['HEAD']);
     setState(s => ({ ...s, stagingBranch: branchName }));
     return branchName;
   }, [state.git]);
@@ -105,7 +113,11 @@ export function GitProvider({ children }: GitProviderProps) {
   }, [state.git, state.stagingBranch, state.originalBranch]);
 
   const applyPatch = useCallback(async (patchPath: string) => {
-    await state.git.raw(['apply', '--unidiff-zero', patchPath]);
+    try {
+      await state.git.raw(['apply', '--unidiff-zero', patchPath]);
+    } catch (err: any) {
+      throw new Error(`Failed to apply patch ${patchPath}: ${err.message}`);
+    }
   }, [state.git]);
 
   const stageAll = useCallback(async () => {
@@ -131,7 +143,12 @@ export function GitProvider({ children }: GitProviderProps) {
       try {
         await state.git.stash(['pop', '--index']);
       } catch (err) {
-        // Stash may not exist
+        // --index can fail with renames; fallback to pop without --index
+        try {
+          await state.git.stash(['pop']);
+        } catch {
+          // Stash may not exist
+        }
       }
     }
   }, [state.git, state.stagingBranch, state.originalBranch, state.stashCreated]);

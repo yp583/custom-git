@@ -13,7 +13,7 @@ add_library(custom_git_shared STATIC
 target_compile_features(custom_git_shared PUBLIC cxx_std_20)
 
 # Download CPM.cmake if not already available
-set(CPM_DOWNLOAD_VERSION 0.38.1)
+set(CPM_DOWNLOAD_VERSION 0.42.0)
 set(CPM_DOWNLOAD_LOCATION "${CMAKE_BINARY_DIR}/cmake/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
 
 if(NOT (EXISTS ${CPM_DOWNLOAD_LOCATION}))

@@ -42,8 +42,10 @@ function AppContent({ threshold, verbose }: Props) {
     const cleanup = async () => {
       try {
         await git.cleanup();
-        const fs = await import('fs/promises');
-        await fs.rm('/tmp/patches', { recursive: true, force: true });
+        if (phase !== 'error') {
+          const fs = await import('fs/promises');
+          await fs.rm('/tmp/patches', { recursive: true, force: true });
+        }
       } catch {
         // Ignore cleanup errors
       }
@@ -69,6 +71,11 @@ function AppContent({ threshold, verbose }: Props) {
 
     const run = async () => {
       try {
+        // Clean up any existing patches from previous runs
+        setStatusMessage('Cleaning up previous patches...');
+        const fs = await import('fs/promises');
+        await fs.rm('/tmp/patches', { recursive: true, force: true });
+        
         setStatusMessage('Stashing working tree changes...');
         await git.stashChanges();
         setPhase('processing');
@@ -87,6 +94,10 @@ function AppContent({ threshold, verbose }: Props) {
     const run = async () => {
       try {
         setStatusMessage('Analyzing changes with AI...');
+
+        // Clear any old patches from previous runs
+        const fs = await import('fs/promises');
+        await fs.rm('/tmp/patches', { recursive: true, force: true });
 
         // Dynamic import to avoid loading execa at top level
         const { execa } = await import('execa');
@@ -219,7 +230,8 @@ function AppContent({ threshold, verbose }: Props) {
         await git.popStash();
         setPhase('done');
       } catch (err: any) {
-        // Non-fatal - stash might not exist
+        // Non-fatal - stash might not exist, but print the error
+        console.error('Failed to pop stash:', err.message);
         setPhase('done');
       }
     };
@@ -238,8 +250,9 @@ function AppContent({ threshold, verbose }: Props) {
         // Clean up temp files
         const fs = await import('fs/promises');
         await fs.rm('/tmp/patches', { recursive: true, force: true });
-      } catch (err) {
-        // Ignore cleanup errors
+      } catch (err: any) {
+        // Print cleanup errors for debugging
+        console.error('Cleanup error during cancellation:', err.message);
       }
       exit();
     };
@@ -253,8 +266,9 @@ function AppContent({ threshold, verbose }: Props) {
     const run = async () => {
       try {
         await git.cleanup();
-        const fs = await import('fs/promises');
-        await fs.rm('/tmp/patches', { recursive: true, force: true });
+        // Don't delete patches on error - keep for debugging
+        // const fs = await import('fs/promises');
+        // await fs.rm('/tmp/patches', { recursive: true, force: true });
       } catch (err) {
         // Ignore cleanup errors
       }
@@ -296,15 +310,13 @@ function AppContent({ threshold, verbose }: Props) {
       setFocusPanel(p => (p === 'tree' ? 'diff' : 'tree'));
     }
 
-    // Commit navigation (scatter view, or diff view with tree focused)
-    if (viewMode === 'scatter' || (viewMode === 'diff' && focusPanel === 'tree')) {
-      if (input === 'h' || key.leftArrow) {
-        setSelectedCluster(c => Math.max(0, c - 1));
-        setSelectedFilePath('');
-      } else if (input === 'l' || key.rightArrow) {
-        setSelectedCluster(c => Math.min(numClusters - 1, c + 1));
-        setSelectedFilePath('');
-      }
+    // Commit navigation with shift key (works from any panel)
+    if (key.shift && (input === 'h' || input === 'H' || key.leftArrow)) {
+      setSelectedCluster(c => Math.max(0, c - 1));
+      setSelectedFilePath('');
+    } else if (key.shift && (input === 'l' || input === 'L' || key.rightArrow)) {
+      setSelectedCluster(c => Math.min(numClusters - 1, c + 1));
+      setSelectedFilePath('');
     }
 
     // Apply/Cancel (always available)
@@ -359,11 +371,10 @@ function AppContent({ threshold, verbose }: Props) {
     return (
       <Box flexDirection="column">
         {/* Header */}
-        <Box marginBottom={1}>
+        <Box marginBottom={1} borderStyle="single" paddingX={1}>
           <Text bold>
-            Commit {selectedCluster + 1}/{commitShas.length}:{' '}
+            Commit {selectedCluster + 1}/{commitShas.length}: {commitMessage.split('\n')[0]}
           </Text>
-          <Text>{commitMessage.split('\n')[0]}</Text>
         </Box>
 
         {/* Two-panel layout */}
@@ -383,7 +394,7 @@ function AppContent({ threshold, verbose }: Props) {
         {/* Controls */}
         <Box marginTop={1}>
           <Text dimColor>
-            TAB: panels · {focusPanel === 'tree' ? 'j/k: files · h/l: commits' : 'j/k/h/l: scroll'} · </Text>
+            TAB: panels · {focusPanel === 'tree' ? 'j/k: files' : 'j/k/h/l: scroll'} · shift+h/l: commits · </Text>
           <Text color="yellow" bold>v</Text>
           <Text dimColor>: scatter · </Text>
           <Text color="green" bold>a</Text>

@@ -20,7 +20,8 @@ struct DiffLine {
     int line_num;
 };
 struct DiffChunk {
-    string filepath;
+    string filepath;      // New path (or same as old if not renamed)
+    string old_filepath;  // Old path (for renames, same as filepath if not renamed)
     vector<DiffLine> lines;
     int start = 1;
     bool is_deleted = false;  // File is being deleted (whole file removal)
@@ -39,6 +40,7 @@ private:
     bool in_chunk;
     int curr_line_num;
     string current_filepath;
+    string current_old_filepath;  // Old path from "a/" in diff header
     bool current_is_deleted;   // Track if current file is being deleted
     bool current_is_new;       // Track if current file is being created
 
