@@ -47,16 +47,16 @@ build_command() {
         return 1
     fi
 
-    # Check if term-ui exists (Node CLI is the entrypoint)
-    if [ -d "../term-ui" ]; then
-        echo "Building term-ui (Node CLI entrypoint) for $cmd_name..."
-        cd ../term-ui
+    # Check if terminal-ui exists (Node CLI is the entrypoint)
+    if [ -d "../terminal-ui" ]; then
+        echo "Building terminal-ui (Node CLI entrypoint) for $cmd_name..."
+        cd ../terminal-ui
 
         # Install dependencies
-        npm install || { echo "ERROR: npm install failed for term-ui"; return 1; }
+        npm install || { echo "ERROR: npm install failed for terminal-ui"; return 1; }
 
         # Build the CLI
-        npm run build || { echo "ERROR: term-ui build failed"; return 1; }
+        npm run build || { echo "ERROR: terminal-ui build failed"; return 1; }
 
         # Copy dist/cli.js as git-gcommit (self-contained bundle)
         if [ -f "dist/cli.js" ]; then
@@ -69,7 +69,7 @@ build_command() {
         fi
         cd ../build
     else
-        # Fallback: copy bash script if no term-ui (for other commands like mcommit)
+        # Fallback: copy bash script if no terminal-ui (for other commands like mcommit)
         if [ -f "../git-$cmd_name" ]; then
             echo "Installing git-$cmd_name to $BIN_DIR..."
             cp "../git-$cmd_name" "$BIN_DIR/"

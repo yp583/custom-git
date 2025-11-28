@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { Spinner } from '@inkjs/ui';
 import { GitProvider, useGit } from './contexts/GitContext.js';
+import FileTree from './components/FileTree.js';
+import DiffViewer from './components/DiffViewer.js';
 import ScatterPlot from './components/ScatterPlot.js';
 import ClusterLegend from './components/ClusterLegend.js';
 import type { Phase, ProcessingResult } from './types.js';
@@ -21,6 +23,19 @@ function AppContent({ threshold, verbose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('Initializing...');
   const [stderr, setStderr] = useState<string>('');
+
+  // Visualization state
+  const [viewMode, setViewMode] = useState<'scatter' | 'diff'>('diff');
+  const [selectedCluster, setSelectedCluster] = useState(0);
+  const [focusPanel, setFocusPanel] = useState<'tree' | 'diff'>('tree');
+  const [selectedFilePath, setSelectedFilePath] = useState<string>('');
+  const [commitShas, setCommitShas] = useState<string[]>([]);
+  const [fileDiffs, setFileDiffs] = useState<Map<string, Map<string, string>>>(new Map());
+
+  // Callback for FileTree selection
+  const handleFileSelect = useCallback((_index: number, filepath: string) => {
+    setSelectedFilePath(filepath);
+  }, []);
 
   // Global cleanup on process exit/interrupt
   useEffect(() => {
@@ -116,6 +131,7 @@ function AppContent({ threshold, verbose }: Props) {
         await git.createStagingBranch();
 
         const messages: string[] = [];
+        const shas: string[] = [];
 
         for (let i = 0; i < processingResult.commits.length; i++) {
           const commit = processingResult.commits[i]!;
@@ -130,9 +146,14 @@ function AppContent({ threshold, verbose }: Props) {
           await git.stageAll();
           await git.commit(commit.message);
           messages.push(commit.message);
+
+          // Capture the commit SHA
+          const sha = await git.git.revparse(['HEAD']);
+          shas.push(sha);
         }
 
         setCommitMessages(messages);
+        setCommitShas(shas);
         setPhase('visualization');
       } catch (err: any) {
         setError(err.message);
@@ -141,6 +162,35 @@ function AppContent({ threshold, verbose }: Props) {
     };
     run();
   }, [phase, processingResult]);
+
+  // Load per-file diffs when entering visualization phase
+  useEffect(() => {
+    if (phase !== 'visualization' || commitShas.length === 0) return;
+
+    const loadDiffs = async () => {
+      const allDiffs = new Map<string, Map<string, string>>();
+
+      for (const sha of commitShas) {
+        const perFileDiffs = new Map<string, string>();
+
+        // Get list of changed files for this commit
+        const filesOutput = await git.git.diff([`${sha}^`, sha, '--name-only']);
+        const fileList = filesOutput.trim().split('\n').filter(f => f);
+
+        // Get diff for each file
+        for (const file of fileList) {
+          const diff = await git.git.diff([`${sha}^`, sha, '--', file]);
+          perFileDiffs.set(file, diff);
+        }
+
+        allDiffs.set(sha, perFileDiffs);
+      }
+
+      setFileDiffs(allDiffs);
+    };
+
+    loadDiffs();
+  }, [phase, commitShas]);
 
   // Phase: Merging
   useEffect(() => {
@@ -234,6 +284,30 @@ function AppContent({ threshold, verbose }: Props) {
   useInput((input, key) => {
     if (phase !== 'visualization') return;
 
+    const numClusters = commitShas.length;
+
+    // View toggle
+    if (input === 'v') {
+      setViewMode(v => (v === 'scatter' ? 'diff' : 'scatter'));
+    }
+
+    // Panel toggle (diff view only)
+    if (viewMode === 'diff' && key.tab) {
+      setFocusPanel(p => (p === 'tree' ? 'diff' : 'tree'));
+    }
+
+    // Commit navigation (scatter view, or diff view with tree focused)
+    if (viewMode === 'scatter' || (viewMode === 'diff' && focusPanel === 'tree')) {
+      if (input === 'h' || key.leftArrow) {
+        setSelectedCluster(c => Math.max(0, c - 1));
+        setSelectedFilePath('');
+      } else if (input === 'l' || key.rightArrow) {
+        setSelectedCluster(c => Math.min(numClusters - 1, c + 1));
+        setSelectedFilePath('');
+      }
+    }
+
+    // Apply/Cancel (always available)
     if (input === 'a') {
       setPhase('merging');
     } else if (input === 'q' || input === 'c' || key.escape) {
@@ -255,17 +329,67 @@ function AppContent({ threshold, verbose }: Props) {
     );
   }
 
-  if (phase === 'visualization' && processingResult?.visualization) {
+  if (phase === 'visualization' && commitShas.length > 0) {
+    const currentSha = commitShas[selectedCluster];
+    const currentFiles = fileDiffs.get(currentSha || '');
+    const fileList = currentFiles ? Array.from(currentFiles.keys()) : [];
+    const currentDiff = currentFiles?.get(selectedFilePath) || '';
+    const commitMessage = processingResult?.commits[selectedCluster]?.message || '';
+
+    // Scatter view
+    if (viewMode === 'scatter' && processingResult?.visualization) {
+      return (
+        <Box flexDirection="column">
+          <ScatterPlot points={processingResult.visualization.points} />
+          <ClusterLegend clusters={processingResult.visualization.clusters} />
+          <Box marginTop={1}>
+            <Text dimColor>h/l: commits · </Text>
+            <Text color="yellow" bold>v</Text>
+            <Text dimColor>: diff view · </Text>
+            <Text color="green" bold>a</Text>
+            <Text dimColor>: apply · </Text>
+            <Text color="red" bold>q</Text>
+            <Text dimColor>: quit</Text>
+          </Box>
+        </Box>
+      );
+    }
+
+    // Diff view
     return (
       <Box flexDirection="column">
-        <ScatterPlot points={processingResult.visualization.points} />
-        <ClusterLegend clusters={processingResult.visualization.clusters} />
+        {/* Header */}
+        <Box marginBottom={1}>
+          <Text bold>
+            Commit {selectedCluster + 1}/{commitShas.length}:{' '}
+          </Text>
+          <Text>{commitMessage.split('\n')[0]}</Text>
+        </Box>
+
+        {/* Two-panel layout */}
+        <Box>
+          <FileTree
+            files={fileList}
+            focused={focusPanel === 'tree'}
+            onFileSelect={handleFileSelect}
+          />
+          <DiffViewer
+            content={currentDiff}
+            filepath={selectedFilePath}
+            focused={focusPanel === 'diff'}
+          />
+        </Box>
+
+        {/* Controls */}
         <Box marginTop={1}>
-          <Text dimColor>Press </Text>
+          <Text dimColor>
+            TAB: panels · {focusPanel === 'tree' ? 'j/k: files · h/l: commits' : 'j/k/h/l: scroll'} · </Text>
+          <Text color="yellow" bold>v</Text>
+          <Text dimColor>: scatter · </Text>
           <Text color="green" bold>a</Text>
-          <Text dimColor> to apply commits · </Text>
+          <Text dimColor>: apply · </Text>
           <Text color="red" bold>q</Text>
-          <Text dimColor> to quit</Text>
+          <Text dimColor>: quit</Text>
         </Box>
       </Box>
     );

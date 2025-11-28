@@ -1,5 +1,8 @@
 .env
 .vscode
+.claude
+.cache
+compile_commands.json
 node_modules
 tree-sitter*
 package-lock.json
