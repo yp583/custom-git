@@ -36,3 +36,8 @@ export type Phase =
   | 'done'
   | 'cancelled'
   | 'error';
+
+export type DiffLine = {
+  content: string;
+  type: 'addition' | 'deletion' | 'context';
+};

@@ -1,8 +1,9 @@
 import React, {useState, useEffect} from 'react';
 import {Text, Box, useInput} from 'ink';
+import type {DiffLine} from '../types.js';
 
 type Props = {
-	content: string;
+	content: DiffLine[];
 	filepath: string;
 	focused: boolean;
 	maxHeight?: number;
@@ -19,7 +20,7 @@ export default function DiffViewer({
 	const [scrollOffset, setScrollOffset] = useState(0);
 	const [horizontalOffset, setHorizontalOffset] = useState(0);
 
-	const lines = content.split('\n');
+	const lines = content;
 	const visibleLines = lines.slice(scrollOffset, scrollOffset + maxHeight);
 
 	// Reset scroll when content changes
@@ -43,7 +44,7 @@ export default function DiffViewer({
 	});
 
 	// Pad to fixed height to prevent re-render jitter
-	const paddedLines: Array<{line: string; lineNum: number} | null> = [];
+	const paddedLines: Array<{line: DiffLine; lineNum: number} | null> = [];
 	for (let i = 0; i < maxHeight; i++) {
 		if (i < visibleLines.length) {
 			paddedLines.push({line: visibleLines[i]!, lineNum: scrollOffset + i + 1});
@@ -81,17 +82,17 @@ export default function DiffViewer({
 
 					let color: 'green' | 'red' | undefined;
 
-					// Color additions green, deletions red (skip diff headers)
-					if (item.line.startsWith('+') && !item.line.startsWith('+++')) {
+					// Color additions green, deletions red
+					if (item.line.type === 'addition') {
 						color = 'green';
-					} else if (item.line.startsWith('-') && !item.line.startsWith('---')) {
+					} else if (item.line.type === 'deletion') {
 						color = 'red';
 					}
 
 					return (
 						<Text key={i} wrap="truncate">
 							<Text dimColor>{String(item.lineNum).padStart(4)} </Text>
-							<Text color={color}>{truncateLine(item.line)}</Text>
+							<Text color={color}>{truncateLine(item.line.content)}</Text>
 						</Text>
 					);
 				})}

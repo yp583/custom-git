@@ -8,7 +8,8 @@ import FileTree from './components/FileTree.js';
 import DiffViewer from './components/DiffViewer.js';
 import ScatterPlot from './components/ScatterPlot.js';
 import ClusterLegend from './components/ClusterLegend.js';
-import type { Phase, ProcessingResult } from './types.js';
+import type { Phase, ProcessingResult, DiffLine } from './types.js';
+import { parseUnifiedDiff } from './utils/diffUtils.js';
 
 type Props = {
   threshold: number;
@@ -32,7 +33,7 @@ function AppContent({ threshold, verbose }: Props) {
   const [focusPanel, setFocusPanel] = useState<'tree' | 'diff'>('tree');
   const [selectedFilePath, setSelectedFilePath] = useState<string>('');
   const [commitShas, setCommitShas] = useState<string[]>([]);
-  const [fileDiffs, setFileDiffs] = useState<Map<string, Map<string, string>>>(new Map());
+  const [fileDiffs, setFileDiffs] = useState<Map<string, Map<string, DiffLine[]>>>(new Map());
 
   // Callback for FileTree selection
   const handleFileSelect = useCallback((_index: number, filepath: string) => {
@@ -182,19 +183,27 @@ function AppContent({ threshold, verbose }: Props) {
     if (phase !== 'visualization' || commitShas.length === 0) return;
 
     const loadDiffs = async () => {
-      const allDiffs = new Map<string, Map<string, string>>();
+      const allDiffs = new Map<string, Map<string, DiffLine[]>>();
 
       for (const sha of commitShas) {
-        const perFileDiffs = new Map<string, string>();
+        const perFileDiffs = new Map<string, DiffLine[]>();
 
         // Get list of changed files for this commit
         const filesOutput = await git.git.diff([`${sha}^`, sha, '--name-only']);
         const fileList = filesOutput.trim().split('\n').filter(f => f);
 
-        // Get diff for each file
+        // Get full file content and diff for each file
         for (const file of fileList) {
+          // Fetch old content (from parent commit), empty if new file
+          const oldContent = await git.git.show([`${sha}^:${file}`]).catch(() => '');
+          // Fetch new content (from this commit), empty if deleted
+          const newContent = await git.git.show([`${sha}:${file}`]).catch(() => '');
+          // Get the unified diff
           const diff = await git.git.diff([`${sha}^`, sha, '--', file]);
-          perFileDiffs.set(file, diff);
+
+          // Parse into full file view with diff markers
+          const diffLines = parseUnifiedDiff(oldContent, newContent, diff);
+          perFileDiffs.set(file, diffLines);
         }
 
         allDiffs.set(sha, perFileDiffs);
@@ -348,7 +357,7 @@ function AppContent({ threshold, verbose }: Props) {
     const currentSha = commitShas[selectedCluster];
     const currentFiles = fileDiffs.get(currentSha || '');
     const fileList = currentFiles ? Array.from(currentFiles.keys()) : [];
-    const currentDiff = currentFiles?.get(selectedFilePath) || '';
+    const currentDiff = currentFiles?.get(selectedFilePath) || [];
     const commitMessage = processingResult?.commits[selectedCluster]?.message || '';
 
     // Scatter view
