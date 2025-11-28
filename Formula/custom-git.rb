@@ -10,6 +10,9 @@ class CustomGit < Formula
   depends_on "openssl@3"
 
   def install
+    # Allow CPM/FetchContent to download dependencies during build
+    ENV["HOMEBREW_ALLOW_FETCHCONTENT"] = "1"
+
     # Build gcommit (C++ executable)
     cd "commands/gcommit" do
       system "cmake", "-S", ".", "-B", "build",
