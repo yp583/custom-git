@@ -14,18 +14,18 @@ class CustomGit < Formula
     ENV["HOMEBREW_ALLOW_FETCHCONTENT"] = "1"
 
     # Build gcommit (C++ executable)
+    # Note: Not using std_cmake_args to avoid FetchContent trap - CPM needs to download deps
     cd "commands/gcommit" do
       system "cmake", "-S", ".", "-B", "build",
              "-DCMAKE_BUILD_TYPE=Release",
-             "-DOPENSSL_ROOT_DIR=#{Formula["openssl@3"].opt_prefix}",
-             *std_cmake_args
+             "-DOPENSSL_ROOT_DIR=#{Formula["openssl@3"].opt_prefix}"
       system "cmake", "--build", "build"
       bin.install "build/git_gcommit.o"
     end
 
     # Build gcommit terminal-ui (Node.js CLI)
     cd "commands/gcommit/terminal-ui" do
-      system "npm", "install", *std_npm_args
+      system "npm", "install"
       system "npm", "run", "build"
       bin.install "dist/cli.js" => "git-gcommit"
     end
@@ -34,8 +34,7 @@ class CustomGit < Formula
     cd "commands/mcommit" do
       system "cmake", "-S", ".", "-B", "build",
              "-DCMAKE_BUILD_TYPE=Release",
-             "-DOPENSSL_ROOT_DIR=#{Formula["openssl@3"].opt_prefix}",
-             *std_cmake_args
+             "-DOPENSSL_ROOT_DIR=#{Formula["openssl@3"].opt_prefix}"
       system "cmake", "--build", "build"
       bin.install "build/git_mcommit.o"
       bin.install "git-mcommit"
