@@ -30,8 +30,17 @@ const cli = meow(`
       shortFlag: 'v',
       default: false,
     },
+    help: {
+      type: 'boolean',
+      shortFlag: 'h',
+    },
   },
 });
+
+// Show help and exit if requested
+if (cli.flags.help) {
+  cli.showHelp();
+}
 
 async function main() {
   const git = simpleGit();
