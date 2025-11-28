@@ -70,9 +70,9 @@ int main(int argc, char *argv[]) {
   const char* api_key_env = getenv("OPENAI_API_KEY");
   string api_key = api_key_env ? api_key_env : "";
 
-  // If not in env, check git config custom.openai_api_key
+  // If not in env, check git config custom.openaiApiKey
   if (api_key.empty()) {
-    FILE* pipe = popen("git config --get custom.openai_api_key 2>/dev/null", "r");
+    FILE* pipe = popen("git config --get custom.openaiApiKey 2>/dev/null", "r");
     if (pipe) {
       char buffer[256];
       if (fgets(buffer, sizeof(buffer), pipe)) {
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (api_key.empty()) {
-    cerr << "Error: OPENAI_API_KEY not found in environment or git config (custom.openai_api_key)" << endl;
+    cerr << "Error: OPENAI_API_KEY not found in environment or git config (custom.openaiApiKey)" << endl;
     return 1;
   }
 

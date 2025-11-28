@@ -34,11 +34,19 @@ git gcommit -d 0.3    # Custom similarity threshold
 
 ## Requirements
 
-Set the `OPENAI_API_KEY` environment variable:
+Set your OpenAI API key using **either** method:
 
+**Option 1: Environment variable**
 ```bash
-export OPENAI_API_KEY=your_openai_api_key_here
+export OPENAI_API_KEY="sk-..."
 ```
+
+**Option 2: Git config** (recommended for per-machine setup)
+```bash
+git config --global custom.openaiApiKey "sk-..."
+```
+
+The environment variable takes precedence if both are set.
 
 ## Available Commands
 

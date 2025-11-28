@@ -47,8 +47,13 @@ class CustomGit < Formula
 
   def caveats
     <<~EOS
-      To use these commands, set the OPENAI_API_KEY environment variable:
-        export OPENAI_API_KEY="your-api-key"
+      Set your OpenAI API key using either method:
+
+        Option 1: Environment variable
+          export OPENAI_API_KEY="sk-..."
+
+        Option 2: Git config (recommended)
+          git config --global custom.openaiApiKey "sk-..."
 
       Available commands:
         git gcommit [threshold]  - Cluster staged changes and create semantic commits
