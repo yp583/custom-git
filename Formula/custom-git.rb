@@ -1,0 +1,57 @@
+class CustomGit < Formula
+  desc "AI-powered git commit commands with semantic clustering"
+  homepage "https://github.com/yp583/custom-git"
+  url "https://github.com/yp583/custom-git/archive/refs/tags/v0.1.0.tar.gz"
+  sha256 "beeca837e761803bdd213984d755deafacfb5f1a859f437f5b0cec108d649268"
+  license "MIT"
+
+  depends_on "cmake" => :build
+  depends_on "node"
+  depends_on "openssl@3"
+
+  def install
+    # Build gcommit (C++ executable)
+    cd "commands/gcommit" do
+      system "cmake", "-S", ".", "-B", "build",
+             "-DCMAKE_BUILD_TYPE=Release",
+             "-DOPENSSL_ROOT_DIR=#{Formula["openssl@3"].opt_prefix}",
+             *std_cmake_args
+      system "cmake", "--build", "build"
+      bin.install "build/git_gcommit.o"
+    end
+
+    # Build gcommit terminal-ui (Node.js CLI)
+    cd "commands/gcommit/terminal-ui" do
+      system "npm", "install", *std_npm_args
+      system "npm", "run", "build"
+      bin.install "dist/cli.js" => "git-gcommit"
+    end
+
+    # Build mcommit (C++ executable)
+    cd "commands/mcommit" do
+      system "cmake", "-S", ".", "-B", "build",
+             "-DCMAKE_BUILD_TYPE=Release",
+             "-DOPENSSL_ROOT_DIR=#{Formula["openssl@3"].opt_prefix}",
+             *std_cmake_args
+      system "cmake", "--build", "build"
+      bin.install "build/git_mcommit.o"
+      bin.install "git-mcommit"
+    end
+  end
+
+  def caveats
+    <<~EOS
+      To use these commands, set the OPENAI_API_KEY environment variable:
+        export OPENAI_API_KEY="your-api-key"
+
+      Available commands:
+        git gcommit [threshold]  - Cluster staged changes and create semantic commits
+        git mcommit [-i]         - Simple AI-generated commit message
+    EOS
+  end
+
+  test do
+    system bin/"git_gcommit.o", "--help"
+    system bin/"git_mcommit.o", "--help"
+  end
+end
