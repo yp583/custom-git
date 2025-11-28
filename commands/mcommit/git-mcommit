@@ -6,17 +6,17 @@
 set -e  # Exit on any error
 
 # Parse command line arguments
-EDIT_MODE=false
+INTERACTIVE_MODE=false
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -e|--edit)
-      EDIT_MODE=true
+    -i|--interactive)
+      INTERACTIVE_MODE=true
       shift
       ;;
     -h|--help)
-      echo "Usage: git-mcommit [-e|--edit] [-h|--help]"
-      echo "  -e, --edit    Automatically open editor to modify commit message"
-      echo "  -h, --help    Show this help message"
+      echo "Usage: git-mcommit [-i|--interactive] [-h|--help]"
+      echo "  -i, --interactive    Open vim to edit commit message"
+      echo "  -h, --help           Show this help message"
       exit 0
       ;;
     *)
@@ -75,38 +75,29 @@ echo "$COMMIT_MESSAGE"
 echo ""
 
 # Handle editing based on flag or user choice
-if [ "$EDIT_MODE" = true ]; then
-  # Automatically open editor when -e flag is used
+if [ "$INTERACTIVE_MODE" = true ]; then
+  # Open vim to edit message when -i flag is used
   TEMP_FILE=$(mktemp)
   echo "$COMMIT_MESSAGE" > "$TEMP_FILE"
-  
-  # Try different editors in order of preference
-  if command -v vim >/dev/null 2>&1; then
-    vim "$TEMP_FILE"
-  elif command -v vi >/dev/null 2>&1; then
-    vi "$TEMP_FILE"
-  else
-    echo "No suitable editor found. Please install vim, or vi."
-    rm "$TEMP_FILE"
-    exit 1
-  fi
-  
+
+  vim "$TEMP_FILE"
+
   # Read the edited message
   COMMIT_MESSAGE=$(cat "$TEMP_FILE")
   rm "$TEMP_FILE"
-  
+
   echo ""
   echo "Final commit message:"
   echo "$COMMIT_MESSAGE"
   echo ""
-else
-  # Ask for confirmation when no -e flag
-  read -p "Confirm this commit message? (Y/n): " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Nn]$ ]]; then
-    echo "Commit cancelled."
-    exit 0
-  fi
+fi
+
+# Ask for explicit confirmation (y for yes, n or Ctrl+C to cancel)
+read -p "Confirm commit? (y/n): " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  echo "Commit cancelled."
+  exit 0
 fi
 
 # Commit with the (possibly edited) message
