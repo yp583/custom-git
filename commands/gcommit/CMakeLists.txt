@@ -85,6 +85,13 @@ CPMAddPackage(
   OPTIONS "UMAPPP_FETCH_EXTERN ON"
 )
 
+# Add hdbscan-cpp for density-based clustering
+CPMAddPackage(
+  NAME hdbscan_cpp
+  GIT_REPOSITORY https://github.com/rohanmohapatra/hdbscan-cpp
+  GIT_TAG master
+)
+
 # Find OpenSSL
 find_package(OpenSSL REQUIRED)
 
@@ -124,13 +131,15 @@ target_link_libraries(custom_git_shared
 add_executable(git_gcommit.o
     src/main.cpp
     src/hierarchal.cpp
+    src/hdbscan.cpp
     src/kmeans.cpp
 )
 
 # Set up include directories for executable
-target_include_directories(git_gcommit.o PRIVATE 
+target_include_directories(git_gcommit.o PRIVATE
     src
     ../../shared
+    ${hdbscan_cpp_SOURCE_DIR}/HDBSCAN-CPP
 )
 
 # Link the executable to the shared library
