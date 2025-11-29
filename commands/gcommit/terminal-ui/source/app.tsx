@@ -9,7 +9,7 @@ import DiffViewer from './components/DiffViewer.js';
 import ScatterPlot from './components/ScatterPlot.js';
 import ClusterLegend from './components/ClusterLegend.js';
 import type { Phase, ProcessingResult, DiffLine } from './types.js';
-import { parseUnifiedDiff } from './utils/diffUtils.js';
+import { parseFullContextDiff } from './utils/diffUtils.js';
 
 type Props = {
   threshold: number;
@@ -192,17 +192,13 @@ function AppContent({ threshold, verbose }: Props) {
         const filesOutput = await git.git.diff([`${sha}^`, sha, '--name-only']);
         const fileList = filesOutput.trim().split('\n').filter(f => f);
 
-        // Get full file content and diff for each file
+        // Get full file diff with full context (entire file shown)
         for (const file of fileList) {
-          // Fetch old content (from parent commit), empty if new file
-          const oldContent = await git.git.show([`${sha}^:${file}`]).catch(() => '');
-          // Fetch new content (from this commit), empty if deleted
-          const newContent = await git.git.show([`${sha}:${file}`]).catch(() => '');
-          // Get the unified diff
-          const diff = await git.git.diff([`${sha}^`, sha, '--', file]);
+          // Use -U999999 to get full file as context in the diff
+          const diff = await git.git.diff(['-U999999', `${sha}^`, sha, '--', file]);
 
-          // Parse into full file view with diff markers
-          const diffLines = parseUnifiedDiff(oldContent, newContent, diff);
+          // Parse the full-context diff directly
+          const diffLines = parseFullContextDiff(diff);
           perFileDiffs.set(file, diffLines);
         }
 
