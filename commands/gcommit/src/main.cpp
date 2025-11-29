@@ -1,7 +1,7 @@
 #include "ast.hpp"
 #include "async_openai_api.hpp"
 #include "utils.hpp"
-#include "hierarchal.hpp"
+#include "hdbscan.hpp"
 #include "diffreader.hpp"
 #include "umap.hpp"
 #include <regex>
@@ -149,12 +149,14 @@ int main(int argc, char *argv[]) {
     if (verbose >= 1) cerr << "Done with Embedding Job" << endl;
   }
 
-  HierachicalClustering hc;
+  // min_cluster_size derived from threshold: lower threshold = more clusters = smaller min size
+  int min_cluster_size = max(2, static_cast<int>(dist_thresh * 5));
+  HDBSCANClustering hc(min_cluster_size, 2);
 
-  if (verbose >= 1) cerr << "Starting hierarchical clustering with distance threshold of " << dist_thresh << " ..." << endl;
+  if (verbose >= 1) cerr << "Starting HDBSCAN clustering (min_cluster_size=" << min_cluster_size << ")..." << endl;
 
   // Clustering
-  hc.cluster(embeddings, dist_thresh);
+  hc.fit(embeddings);
   vector<vector<int>> clusters = hc.get_clusters();
   if (verbose >= 1) cerr << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
 
