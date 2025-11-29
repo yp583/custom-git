@@ -122,31 +122,8 @@ custom-git/
 └── Formula/               # Homebrew formula
 ```
 
-## Development
+## TODOs
 
-### Building Commands Locally
-```bash
-# Build all commands without installing
-./scripts/build_all.sh
-
-# Test commands locally
-cd commands/mcommit
-echo "test changes" | ./build/git_mcommit.o
-
-cd ../gcommit
-git diff HEAD^^^..HEAD | ./build/git_gcommit.o 0.5
-```
-
-### Adding New Commands
-
-1. Create a new directory under `commands/`:
-   ```bash
-   mkdir commands/mycommand
-   cd commands/mycommand
-   ```
-
-2. Add your implementation files and `CMakeLists.txt`
-
-3. Create a `git-mycommand` script that calls your executable
-
-4. Run `./scripts/setup.sh` to build and install all commands
+- Add a simple cmd to autocomplete git checkout based on existing branches (including remote ones)
+- Add editing threshold dynamically after embeddings to allow user to choose number of commits for gcommit
+- Better naming of commands?
