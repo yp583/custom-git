@@ -127,3 +127,4 @@ custom-git/
 - Add a simple cmd to autocomplete git checkout based on existing branches (including remote ones)
 - Add editing threshold dynamically after embeddings to allow user to choose number of commits for gcommit
 - Better naming of commands?
+- Add ability to read from git configs for all cmd line args 
