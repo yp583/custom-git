@@ -92,6 +92,14 @@ CPMAddPackage(
   GIT_TAG master
 )
 
+# Build hdbscan-cpp as a static library (auto-discover sources)
+file(GLOB_RECURSE HDBSCAN_SOURCES ${hdbscan_cpp_SOURCE_DIR}/HDBSCAN-CPP/*.cpp)
+add_library(hdbscan_lib STATIC ${HDBSCAN_SOURCES})
+
+target_include_directories(hdbscan_lib PUBLIC
+    ${hdbscan_cpp_SOURCE_DIR}/HDBSCAN-CPP
+)
+
 # Find OpenSSL
 find_package(OpenSSL REQUIRED)
 
@@ -139,11 +147,11 @@ add_executable(git_gcommit.o
 target_include_directories(git_gcommit.o PRIVATE
     src
     ../../shared
-    ${hdbscan_cpp_SOURCE_DIR}/HDBSCAN-CPP
 )
 
 # Link the executable to the shared library
 target_link_libraries(git_gcommit.o
     custom_git_shared
     libscran::umappp
+    hdbscan_lib
 ) 

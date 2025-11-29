@@ -28,9 +28,7 @@ struct ClusteredCommit {
   }
 };
 
-
 int main(int argc, char *argv[]) {
-  // Parse arguments: [-d threshold] [-i] [-v|-vv]
   float dist_thresh = 0.5;
   int verbose = 0;
   bool interactive = false;
@@ -44,7 +42,6 @@ int main(int argc, char *argv[]) {
     } else if (arg == "-i") {
       interactive = true;
     } else if (arg == "-d") {
-      // -d requires a following argument for threshold
       if (i + 1 < argc) {
         try {
           dist_thresh = stof(argv[++i]);
@@ -57,7 +54,6 @@ int main(int argc, char *argv[]) {
         return 1;
       }
     } else {
-      // Legacy: assume bare number is threshold for backwards compatibility
       try {
         dist_thresh = stof(arg);
       } catch (...) {
@@ -70,14 +66,12 @@ int main(int argc, char *argv[]) {
   const char* api_key_env = getenv("OPENAI_API_KEY");
   string api_key = api_key_env ? api_key_env : "";
 
-  // If not in env, check git config custom.openaiApiKey
   if (api_key.empty()) {
     FILE* pipe = popen("git config --get custom.openaiApiKey 2>/dev/null", "r");
     if (pipe) {
       char buffer[256];
       if (fgets(buffer, sizeof(buffer), pipe)) {
         api_key = buffer;
-        // Remove trailing newline
         if (!api_key.empty() && api_key.back() == '\n') {
           api_key.pop_back();
         }
@@ -91,8 +85,6 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-
-  //handles reading from cin too
   DiffReader dr(cin);
   dr.ingestDiff();
 
@@ -105,7 +97,7 @@ int main(int argc, char *argv[]) {
 
     vector<DiffChunk> file_chunks;
 
-    if (language != "text") { //use ast for non text files
+    if (language != "text") {
       string file_content = combineContent(chunk);
       ts::Tree tree = codeToTree(file_content, language);
       file_chunks = chunkDiff(tree.getRootNode(), chunk);
@@ -149,21 +141,17 @@ int main(int argc, char *argv[]) {
     if (verbose >= 1) cerr << "Done with Embedding Job" << endl;
   }
 
-  // min_cluster_size derived from threshold: lower threshold = more clusters = smaller min size
   int min_cluster_size = max(2, static_cast<int>(dist_thresh * 5));
   HDBSCANClustering hc(min_cluster_size, 2);
 
   if (verbose >= 1) cerr << "Starting HDBSCAN clustering (min_cluster_size=" << min_cluster_size << ")..." << endl;
 
-  // Clustering
   hc.fit(embeddings);
   vector<vector<int>> clusters = hc.get_clusters();
   if (verbose >= 1) cerr << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
 
-  // UMAP computation for interactive visualization
   vector<UmapPoint> umap_points;
   if (interactive) {
-    // UMAP needs at least 3 points to work reliably
     if (embeddings.size() >= 3) {
       if (verbose >= 1) cerr << "Running UMAP dimensionality reduction..." << endl;
       try {
@@ -178,7 +166,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // Build chunk_to_cluster lookup
   vector<int> chunk_to_cluster(all_chunks.size(), -1);
   for (size_t i = 0; i < clusters.size(); i++) {
     for (int idx : clusters[i]) {
@@ -188,14 +175,12 @@ int main(int argc, char *argv[]) {
 
   vector<DiffChunk> all_cluster_chunks;
   vector<size_t> cluster_end_idx;
-  
 
   for (size_t i = 0; i < clusters.size(); i++) {
     const vector<int>& cluster = clusters[i];
 
     if (verbose >= 1) cerr << "Cluster " << (i + 1) << ":" << endl;
 
-    // Collect chunks for this cluster
     for (int idx: cluster) {
       all_cluster_chunks.push_back(all_chunks[idx]);
     }
@@ -206,9 +191,8 @@ int main(int argc, char *argv[]) {
   vector<string> patches = createPatches(all_cluster_chunks);
   vector<vector<string>> clusters_patch_paths;
 
-  // Write patches to cluster folders
   for (size_t i = 0; i < cluster_end_idx.size(); i++) {
-    clusters_patch_paths.push_back(vector<string>());  // New vector for each cluster
+    clusters_patch_paths.push_back(vector<string>());
     string cluster_dir = "/tmp/patches/cluster_" + to_string(i);
     filesystem::create_directories(cluster_dir);
 
@@ -217,7 +201,6 @@ int main(int argc, char *argv[]) {
 
     int patch_num = 0;
     for (size_t j = start_idx; j < end_idx && j < patches.size(); j++) {
-      // Skip empty patches (e.g., chunks with only NO_NEWLINE markers)
       if (patches[j].empty()) {
         if (verbose >= 1) cerr << "Skipping empty patch at index " << j << endl;
         continue;
@@ -235,7 +218,6 @@ int main(int argc, char *argv[]) {
   vector<ClusteredCommit> commits;
   int cluster_idx = 0;
   for (vector<string>& patch_paths: clusters_patch_paths) {
-    // Skip clusters with no valid patches (all patches were empty)
     if (patch_paths.empty()) {
       if (verbose >= 1) cerr << "Skipping cluster with no valid patches" << endl;
       cluster_idx++;
@@ -278,21 +260,17 @@ int main(int argc, char *argv[]) {
     commits[i].message = message_futures[i].get();
   }
 
-  // Build output JSON for stdout
   json output;
 
-  // Commits array
   json commits_json = json::array();
   for (const ClusteredCommit& commit : commits) {
     commits_json.push_back(commit.to_json());
   }
   output["commits"] = commits_json;
 
-  // Visualization data (only if interactive mode)
   if (interactive) {
     json viz_output;
 
-    // Points array
     json points_json = json::array();
     for (size_t i = 0; i < all_chunks.size(); i++) {
       string preview = combineContent(all_chunks[i]);
@@ -312,7 +290,6 @@ int main(int argc, char *argv[]) {
     }
     viz_output["points"] = points_json;
 
-    // Clusters array with messages
     json clusters_json = json::array();
     for (size_t i = 0; i < commits.size(); i++) {
       clusters_json.push_back({
@@ -325,7 +302,6 @@ int main(int argc, char *argv[]) {
     output["visualization"] = viz_output;
   }
 
-  // Output JSON to stdout
   cout << output.dump() << endl;
 
   if (verbose >= 1) cerr << "Output complete." << endl;
