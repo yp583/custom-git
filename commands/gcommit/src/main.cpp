@@ -90,7 +90,10 @@ int run_explore(int verbose, const string& session_path) {
     return 1;
   }
 
+<<<<<<< Updated upstream
   // Parse diff from stdin
+=======
+>>>>>>> Stashed changes
   DiffReader dr(cin);
   dr.ingestDiff();
   if (verbose >= 1) cerr << "Parsed " << dr.getChunks().size() << " chunks from git diff" << endl;
@@ -145,6 +148,7 @@ int run_explore(int verbose, const string& session_path) {
   }
   if (verbose >= 1) cerr << " done" << endl;
 
+<<<<<<< Updated upstream
   // Compute UMAP for visualization
   vector<UmapPoint> umap_points;
   if (embeddings.size() >= 3) {
@@ -219,18 +223,56 @@ int run_commit(int verbose, float dist_thresh, const string& session_path) {
 
   // Build chunk-to-cluster mapping
   vector<int> chunk_to_cluster(session.chunks.size(), -1);
+=======
+  int min_cluster_size = max(2, static_cast<int>(dist_thresh * 5));
+  HDBSCANClustering hc(min_cluster_size, 2);
+
+  if (verbose >= 1) cerr << "Starting HDBSCAN clustering (min_cluster_size=" << min_cluster_size << ")..." << endl;
+
+  hc.fit(embeddings);
+  vector<vector<int>> clusters = hc.get_clusters();
+  if (verbose >= 1) cerr << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
+
+  vector<UmapPoint> umap_points;
+  if (interactive) {
+    if (embeddings.size() >= 3) {
+      if (verbose >= 1) cerr << "Running UMAP dimensionality reduction..." << endl;
+      try {
+        umap_points = compute_umap(embeddings);
+        if (verbose >= 1) cerr << "UMAP complete." << endl;
+      } catch (const exception& e) {
+        if (verbose >= 1) cerr << "UMAP failed: " << e.what() << endl;
+        umap_points = {};
+      }
+    } else {
+      if (verbose >= 1) cerr << "Skipping UMAP (need >= 3 chunks, got " << embeddings.size() << ")" << endl;
+    }
+  }
+
+  vector<int> chunk_to_cluster(all_chunks.size(), -1);
+>>>>>>> Stashed changes
   for (size_t i = 0; i < clusters.size(); i++) {
     for (int idx : clusters[i]) {
       chunk_to_cluster[idx] = static_cast<int>(i);
     }
   }
 
+<<<<<<< Updated upstream
   // Create patches per cluster
   filesystem::remove_all("/tmp/patches");
   vector<vector<string>> cluster_patch_paths;
+=======
+  vector<DiffChunk> all_cluster_chunks;
+  vector<size_t> cluster_end_idx;
+>>>>>>> Stashed changes
 
   for (size_t i = 0; i < clusters.size(); i++) {
 
+<<<<<<< Updated upstream
+=======
+    if (verbose >= 1) cerr << "Cluster " << (i + 1) << ":" << endl;
+
+>>>>>>> Stashed changes
     for (int idx: cluster) {
       all_cluster_chunks.push_back(all_chunks[idx]);
     }
@@ -318,8 +360,43 @@ int run_commit(int verbose, float dist_thresh, const string& session_path) {
   }
   output["commits"] = commits_json;
 
+<<<<<<< Updated upstream
   // Include visualization with cluster assignments
   json points_json = json::array();
+=======
+  if (interactive) {
+    json viz_output;
+
+    json points_json = json::array();
+    for (size_t i = 0; i < all_chunks.size(); i++) {
+      string preview = combineContent(all_chunks[i]);
+      if (preview.size() > 100) preview = preview.substr(0, 100) + "...";
+
+      double x = (i < umap_points.size()) ? umap_points[i].x : 0.0;
+      double y = (i < umap_points.size()) ? umap_points[i].y : 0.0;
+
+      points_json.push_back({
+        {"id", i},
+        {"x", x},
+        {"y", y},
+        {"cluster_id", chunk_to_cluster[i]},
+        {"filepath", all_chunks[i].filepath},
+        {"preview", preview}
+      });
+    }
+    viz_output["points"] = points_json;
+
+    json clusters_json = json::array();
+    for (size_t i = 0; i < commits.size(); i++) {
+      clusters_json.push_back({
+        {"id", commits[i].cluster_id},
+        {"message", commits[i].message}
+      });
+    }
+    viz_output["clusters"] = clusters_json;
+
+    output["visualization"] = viz_output;
+>>>>>>> Stashed changes
   }
 
   cout << output.dump() << endl;
