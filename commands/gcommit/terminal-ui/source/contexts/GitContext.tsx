@@ -140,6 +140,13 @@ export function GitProvider({ children }: GitProviderProps) {
     }
     // Pop stash if we created one
     if (state.stashCreated) {
+      // Clean untracked files that may have been created by failed patches
+      // This prevents "would be overwritten" errors when popping stash
+      try {
+        await state.git.raw(['clean', '-fd']);
+      } catch {
+        // Ignore clean errors
+      }
       try {
         await state.git.stash(['pop', '--index']);
       } catch (err) {
