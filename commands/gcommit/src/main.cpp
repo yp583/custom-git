@@ -79,107 +79,157 @@ int main(int argc, char *argv[]) {
       pclose(pipe);
     }
   }
+  return api_key;
+}
 
+// Explore mode: parse diff, get embeddings, compute UMAP, save session
+int run_explore(int verbose, const string& session_path) {
+  string api_key = get_api_key();
   if (api_key.empty()) {
-    cerr << "Error: OPENAI_API_KEY not found in environment or git config (custom.openaiApiKey)" << endl;
+    cerr << "Error: OPENAI_API_KEY not found" << endl;
     return 1;
   }
 
+  // Parse diff from stdin
   DiffReader dr(cin);
   dr.ingestDiff();
-
   if (verbose >= 1) cerr << "Parsed " << dr.getChunks().size() << " chunks from git diff" << endl;
 
+  // AST-chunk the diff
   vector<DiffChunk> all_chunks;
-
   for (const DiffChunk& chunk : dr.getChunks()) {
     string language = detectLanguageFromPath(chunk.filepath);
-
     vector<DiffChunk> file_chunks;
 
     if (language != "text") {
       string file_content = combineContent(chunk);
       ts::Tree tree = codeToTree(file_content, language);
       file_chunks = chunkDiff(tree.getRootNode(), chunk);
-    }
-    else {
+    } else {
       file_chunks = chunkByLines(chunk);
     }
-
     all_chunks.insert(all_chunks.end(), file_chunks.begin(), file_chunks.end());
   }
 
+  if (all_chunks.empty()) {
+    cerr << "Error: No chunks to process" << endl;
+    return 1;
+  }
+
+  // Get embeddings
   AsyncHTTPSConnection conn(verbose);
   AsyncOpenAIAPI openai_api(conn, api_key);
-  vector<future<HTTPSResponse>> embedding_resp_futures;
+  vector<future<HTTPSResponse>> embedding_futures;
 
-  if (verbose >= 1) cerr << "Adding Embedding requests to the queue" << endl;
+  if (verbose >= 1) cerr << "Getting embeddings for " << all_chunks.size() << " chunks..." << endl;
 
   const size_t MAX_EMBEDDING_CHARS = 16000;
-  for (size_t i = 0; i < all_chunks.size(); i++){
-    string content = combineContent(all_chunks[i]);
+  for (const auto& chunk : all_chunks) {
+    string content = combineContent(chunk);
     if (content.size() > MAX_EMBEDDING_CHARS) {
       content = content.substr(0, MAX_EMBEDDING_CHARS);
     }
-
-    future<HTTPSResponse> resp_future = openai_api.async_embedding(content);
-    embedding_resp_futures.push_back(std::move(resp_future));
+    embedding_futures.push_back(openai_api.async_embedding(content));
   }
 
   openai_api.run_requests();
 
   vector<vector<float>> embeddings;
-  for (future<HTTPSResponse>& resp: embedding_resp_futures) {
-    vector<float> embedding;
+  for (auto& fut : embedding_futures) {
     try {
-      embedding = parse_embedding(resp.get().body);
+      embeddings.push_back(parse_embedding(fut.get().body));
+    } catch (...) {
+      embeddings.push_back({});
     }
-    catch (const exception& e) {
-      embedding = {};
+    if (verbose >= 1) cerr << "." << flush;
+  }
+  if (verbose >= 1) cerr << " done" << endl;
+
+  // Compute UMAP for visualization
+  vector<UmapPoint> umap_points;
+  if (embeddings.size() >= 3) {
+    if (verbose >= 1) cerr << "Computing UMAP..." << endl;
+    try {
+      umap_points = compute_umap(embeddings);
+    } catch (const exception& e) {
+      if (verbose >= 1) cerr << "UMAP failed: " << e.what() << endl;
     }
-    embeddings.push_back(embedding);
-    if (verbose >= 1) cerr << "Done with Embedding Job" << endl;
   }
 
+  // Save session
+  Session session;
+  session.chunks = all_chunks;
+  session.embeddings = embeddings;
+  session.umap_points = umap_points;
+
+  if (!session.save(session_path)) {
+    cerr << "Error: Failed to save session to " << session_path << endl;
+    return 1;
+  }
+  if (verbose >= 1) cerr << "Session saved to " << session_path << endl;
+
+  // Output visualization data (no commits yet)
+  json output;
+  output["session_path"] = session_path;
+  output["chunk_count"] = all_chunks.size();
+
+  json points_json = json::array();
+  for (size_t i = 0; i < all_chunks.size(); i++) {
+    string preview = combineContent(all_chunks[i]);
+    if (preview.size() > 100) preview = preview.substr(0, 100) + "...";
+
+    points_json.push_back({
+      {"id", i},
+      {"x", i < umap_points.size() ? umap_points[i].x : 0.0},
+      {"y", i < umap_points.size() ? umap_points[i].y : 0.0},
+      {"filepath", all_chunks[i].filepath},
+      {"preview", preview}
+    });
+  }
+  output["points"] = points_json;
+
+  cout << output.dump() << endl;
+  return 0;
+}
+
+// Commit mode: load session, cluster with threshold, generate commits
+int run_commit(int verbose, float dist_thresh, const string& session_path) {
+  string api_key = get_api_key();
+  if (api_key.empty()) {
+    cerr << "Error: OPENAI_API_KEY not found" << endl;
+    return 1;
+  }
+
+  // Load session
+  Session session;
+  if (!session.load(session_path)) {
+    cerr << "Error: Failed to load session from " << session_path << endl;
+    return 1;
+  }
+  if (verbose >= 1) cerr << "Loaded session with " << session.chunks.size() << " chunks" << endl;
+
+  // Run HDBSCAN clustering
   int min_cluster_size = max(2, static_cast<int>(dist_thresh * 5));
   HDBSCANClustering hc(min_cluster_size, 2);
 
-  if (verbose >= 1) cerr << "Starting HDBSCAN clustering (min_cluster_size=" << min_cluster_size << ")..." << endl;
-
-  hc.fit(embeddings);
+  if (verbose >= 1) cerr << "Clustering (min_cluster_size=" << min_cluster_size << ")..." << endl;
+  hc.fit(session.embeddings);
   vector<vector<int>> clusters = hc.get_clusters();
-  if (verbose >= 1) cerr << "Clustering complete. Found " << clusters.size() << " clusters" << endl;
+  if (verbose >= 1) cerr << "Found " << clusters.size() << " clusters" << endl;
 
-  vector<UmapPoint> umap_points;
-  if (interactive) {
-    if (embeddings.size() >= 3) {
-      if (verbose >= 1) cerr << "Running UMAP dimensionality reduction..." << endl;
-      try {
-        umap_points = compute_umap(embeddings);
-        if (verbose >= 1) cerr << "UMAP complete." << endl;
-      } catch (const exception& e) {
-        if (verbose >= 1) cerr << "UMAP failed: " << e.what() << endl;
-        umap_points = {};
-      }
-    } else {
-      if (verbose >= 1) cerr << "Skipping UMAP (need >= 3 chunks, got " << embeddings.size() << ")" << endl;
-    }
-  }
-
-  vector<int> chunk_to_cluster(all_chunks.size(), -1);
+  // Build chunk-to-cluster mapping
+  vector<int> chunk_to_cluster(session.chunks.size(), -1);
   for (size_t i = 0; i < clusters.size(); i++) {
     for (int idx : clusters[i]) {
       chunk_to_cluster[idx] = static_cast<int>(i);
     }
   }
 
-  vector<DiffChunk> all_cluster_chunks;
-  vector<size_t> cluster_end_idx;
+  // Create patches per cluster
+  filesystem::remove_all("/tmp/patches");
+  vector<vector<string>> cluster_patch_paths;
 
   for (size_t i = 0; i < clusters.size(); i++) {
-    const vector<int>& cluster = clusters[i];
-
-    if (verbose >= 1) cerr << "Cluster " << (i + 1) << ":" << endl;
 
     for (int idx: cluster) {
       all_cluster_chunks.push_back(all_chunks[idx]);
@@ -268,38 +318,8 @@ int main(int argc, char *argv[]) {
   }
   output["commits"] = commits_json;
 
-  if (interactive) {
-    json viz_output;
-
-    json points_json = json::array();
-    for (size_t i = 0; i < all_chunks.size(); i++) {
-      string preview = combineContent(all_chunks[i]);
-      if (preview.size() > 100) preview = preview.substr(0, 100) + "...";
-
-      double x = (i < umap_points.size()) ? umap_points[i].x : 0.0;
-      double y = (i < umap_points.size()) ? umap_points[i].y : 0.0;
-
-      points_json.push_back({
-        {"id", i},
-        {"x", x},
-        {"y", y},
-        {"cluster_id", chunk_to_cluster[i]},
-        {"filepath", all_chunks[i].filepath},
-        {"preview", preview}
-      });
-    }
-    viz_output["points"] = points_json;
-
-    json clusters_json = json::array();
-    for (size_t i = 0; i < commits.size(); i++) {
-      clusters_json.push_back({
-        {"id", commits[i].cluster_id},
-        {"message", commits[i].message}
-      });
-    }
-    viz_output["clusters"] = clusters_json;
-
-    output["visualization"] = viz_output;
+  // Include visualization with cluster assignments
+  json points_json = json::array();
   }
 
   cout << output.dump() << endl;

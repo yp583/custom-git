@@ -141,6 +141,7 @@ add_executable(git_gcommit.o
     src/hierarchal.cpp
     src/hdbscan.cpp
     src/kmeans.cpp
+    src/session.cpp
 )
 
 # Set up include directories for executable
