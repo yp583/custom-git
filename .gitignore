@@ -14,3 +14,4 @@ _deps
 CLAUDE.md
 FINDINGS.md
 *.test
+.plans
