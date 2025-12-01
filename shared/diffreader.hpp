@@ -47,6 +47,7 @@ private:
     vector<DiffChunk> chunks;
 
     void ingestDiffLine(string line);
+    void flushPendingRename();
 
 public:
     DiffReader(istream& in, bool verbose = false);

@@ -1,6 +1,8 @@
 #include "diffreader.hpp"
 #include <vector>
 #include <fstream>
+#include <set>
+#include <map>
 
 DiffReader::DiffReader(istream& in, bool verbose)
     : in(in),
@@ -16,10 +18,29 @@ vector<DiffChunk> DiffReader::getChunks() const {
     return this->chunks;
 }
 
+void DiffReader::flushPendingRename() {
+    if (this->in_file && !this->in_chunk &&
+        this->current_old_filepath != this->current_filepath) {
+        DiffChunk rename_chunk = DiffChunk{};
+        rename_chunk.filepath = this->current_filepath;
+        rename_chunk.old_filepath = this->current_old_filepath;
+        rename_chunk.is_deleted = false;
+        rename_chunk.is_new = false;
+        rename_chunk.start = 0;
+        this->chunks.push_back(rename_chunk);
+        if (this->verbose) {
+            cout << "PURE RENAME DETECTED: " << this->current_old_filepath
+                 << " -> " << this->current_filepath << endl;
+        }
+    }
+}
+
 void DiffReader::ingestDiffLine(string line) {
     smatch match;
 
     if (regex_match(line, match, this->diff_header_regex)) {
+        this->flushPendingRename();
+
         this->current_old_filepath = match[1].str();
         this->current_filepath = match[2].str();
         this->curr_line_num = 0;
@@ -104,6 +125,7 @@ void DiffReader::ingestDiff() {
     while (getline(this->in, line)) {
         this->ingestDiffLine(line);
     }
+    this->flushPendingRename();
 }
 
 DiffReader::~DiffReader() {}
