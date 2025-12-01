@@ -26,6 +26,7 @@ void DiffReader::flushPendingRename() {
         rename_chunk.old_filepath = this->current_old_filepath;
         rename_chunk.is_deleted = false;
         rename_chunk.is_new = false;
+        rename_chunk.is_rename = true;
         rename_chunk.start = 0;
         this->chunks.push_back(rename_chunk);
         if (this->verbose) {
