@@ -86,6 +86,12 @@ int main(int argc, char *argv[]) {
   // AST-chunk the diff
   vector<DiffChunk> all_chunks;
   for (const DiffChunk& chunk : dr.getChunks()) {
+    // Pure renames have no lines - pass through directly
+    if (chunk.is_rename) {
+      all_chunks.push_back(chunk);
+      continue;
+    }
+
     string language = detectLanguageFromPath(chunk.filepath);
     vector<DiffChunk> file_chunks;
 
