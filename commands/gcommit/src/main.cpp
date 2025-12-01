@@ -66,12 +66,9 @@ int main(int argc, char *argv[]) {
   if (api_key.empty()) {
     FILE* pipe = popen("git config --get custom.openaiApiKey 2>/dev/null", "r");
     if (pipe) {
-      char buffer[256];
-      if (fgets(buffer, sizeof(buffer), pipe)) {
-        api_key = buffer;
-        if (!api_key.empty() && api_key.back() == '\n') {
-          api_key.pop_back();
-        }
+      char c;
+      while ((c = fgetc(pipe)) != EOF && c != '\n') {
+        api_key += c;
       }
       pclose(pipe);
     }
