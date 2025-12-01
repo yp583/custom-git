@@ -135,10 +135,18 @@ int getNumLines(string filepath) {
 
 string createPatch(DiffChunk chunk, bool include_file_header) {
     string patch;
+    bool is_rename = (chunk.old_filepath != chunk.filepath) && !chunk.is_new && !chunk.is_deleted;
+    bool is_pure_rename = is_rename && chunk.lines.empty();
+
+    if (is_pure_rename) {
+        patch += "diff --git a/" + chunk.old_filepath + " b/" + chunk.filepath + "\n";
+        patch += "similarity index 100%\n";
+        patch += "rename from " + chunk.old_filepath + "\n";
+        patch += "rename to " + chunk.filepath + "\n";
+        return patch;
+    }
 
     if (include_file_header) {
-        bool is_rename = (chunk.old_filepath != chunk.filepath) && !chunk.is_new && !chunk.is_deleted;
-
         if (is_rename) {
             patch += "diff --git a/" + chunk.old_filepath + " b/" + chunk.filepath + "\n";
             patch += "rename from " + chunk.old_filepath + "\n";
@@ -188,8 +196,17 @@ string createPatch(DiffChunk chunk, bool include_file_header) {
 vector<string> createPatches(vector<DiffChunk> chunks) {
     vector<string> patches;
     unordered_map<string, string> renamed_files;
+    unordered_map<string, map<int, int>> file_cumulative_deltas;
 
-    for (DiffChunk chunk : chunks) {
+    unordered_map<string, size_t> deleted_file_last_idx;
+    for (size_t i = 0; i < chunks.size(); i++) {
+        if (chunks[i].is_deleted) {
+            deleted_file_last_idx[chunks[i].filepath] = i;
+        }
+    }
+
+    for (size_t i = 0; i < chunks.size(); i++) {
+        DiffChunk chunk = chunks[i];
         auto it = renamed_files.find(chunk.old_filepath);
         if (it != renamed_files.end()) {
             chunk.old_filepath = it->second;
@@ -200,7 +217,49 @@ vector<string> createPatches(vector<DiffChunk> chunks) {
             renamed_files[chunk.old_filepath] = chunk.filepath;
         }
 
+        bool is_deleted_file = chunk.is_deleted;
+        string filepath = chunk.filepath;
+
+        chunk.is_deleted = false;
+
+        int original_start = chunk.start;
+
+        int adjustment = 0;
+        auto& cumulative_deltas = file_cumulative_deltas[filepath];
+        auto it_delta = cumulative_deltas.lower_bound(original_start);
+        if (it_delta != cumulative_deltas.begin()) {
+            --it_delta;
+            adjustment = it_delta->second;
+        }
+        chunk.start += adjustment;
+
         patches.push_back(createPatch(chunk, true));
+
+        int old_count = 0, new_count = 0;
+        for (const DiffLine& line : chunk.lines) {
+            if (line.mode == EQ) { old_count++; new_count++; }
+            else if (line.mode == DELETION) { old_count++; }
+            else if (line.mode == INSERTION) { new_count++; }
+        }
+        
+        int delta = new_count - old_count;
+        if (delta != 0) {
+            auto update_it = cumulative_deltas.lower_bound(original_start);
+            while (update_it != cumulative_deltas.end()) {
+                update_it->second += delta;
+                ++update_it;
+            }
+            cumulative_deltas[original_start] = adjustment + delta;
+        }
+
+        auto del_it = deleted_file_last_idx.find(filepath);
+        if (is_deleted_file && del_it != deleted_file_last_idx.end() && del_it->second == i) {
+            string delete_patch = "diff --git a/" + filepath + " b/" + filepath + "\n";
+            delete_patch += "deleted file mode 100644\n";
+            delete_patch += "--- a/" + filepath + "\n";
+            delete_patch += "+++ /dev/null\n";
+            patches.push_back(delete_patch);
+        }
     }
 
     return patches;
