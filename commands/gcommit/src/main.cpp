@@ -133,37 +133,6 @@ int main(int argc, char *argv[]) {
   }
   if (verbose >= 1) cerr << " done" << endl;
 
-=======
-
->>>>>>> Stashed changes
-// Commit mode: load session, cluster with threshold, generate commits
-int run_commit(int verbose, float dist_thresh, const string& session_path) {
-  string api_key = get_api_key();
-  if (api_key.empty()) {
-    cerr << "Error: OPENAI_API_KEY not found" << endl;
-    return 1;
-  }
-
-  // Load session
-  Session session;
-  if (!session.load(session_path)) {
-    cerr << "Error: Failed to load session from " << session_path << endl;
-    return 1;
-  }
-  if (verbose >= 1) cerr << "Loaded session with " << session.chunks.size() << " chunks" << endl;
-
-  // Run HDBSCAN clustering
-  int min_cluster_size = max(2, static_cast<int>(dist_thresh * 5));
-  HDBSCANClustering hc(min_cluster_size, 2);
-
-  if (verbose >= 1) cerr << "Clustering (min_cluster_size=" << min_cluster_size << ")..." << endl;
-  hc.fit(session.embeddings);
-  vector<vector<int>> clusters = hc.get_clusters();
-  if (verbose >= 1) cerr << "Found " << clusters.size() << " clusters" << endl;
-
-  // Build chunk-to-cluster mapping
-  vector<int> chunk_to_cluster(session.chunks.size(), -1);
-=======
   int min_cluster_size = max(2, static_cast<int>(dist_thresh * 5));
   HDBSCANClustering hc(min_cluster_size, 2);
 
