@@ -148,6 +148,13 @@ export function GitProvider({ children }: GitProviderProps) {
         // Ignore clean errors
       }
       try {
+        // Clean untracked files that may have been created by failed patches
+        // This prevents "would be overwritten" errors when popping stash
+        await state.git.clean('f', ['-d']);
+      } catch {
+        // Ignore clean errors
+      }
+      try {
         await state.git.stash(['pop', '--index']);
       } catch (err) {
         // --index can fail with renames; fallback to pop without --index

@@ -59,12 +59,6 @@ async function main() {
     process.exit(1);
   }
 
-  // Validation: Check for OPENAI_API_KEY
-  if (!process.env['OPENAI_API_KEY']) {
-    console.error('Error: OPENAI_API_KEY environment variable not set');
-    process.exit(1);
-  }
-
   // Launch Ink app
   const { waitUntilExit } = render(
     <App
