@@ -114,6 +114,12 @@ int main(int argc, char *argv[]) {
   const size_t MAX_EMBEDDING_CHARS = 16000;
   for (const auto& chunk : all_chunks) {
     string content = combineContent(chunk);
+    // For pure renames/empty chunks, use descriptive text for embedding
+    if (chunk.is_rename) {
+      content = "renamed file from " + chunk.old_filepath + " to " + chunk.filepath;
+    } else if (content.empty()) {
+      content = "file: " + chunk.filepath;
+    }
     if (content.size() > MAX_EMBEDDING_CHARS) {
       content = content.substr(0, MAX_EMBEDDING_CHARS);
     }
