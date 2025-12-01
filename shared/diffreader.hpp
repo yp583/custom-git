@@ -26,6 +26,7 @@ struct DiffChunk {
     int start = 1;
     bool is_deleted = false;  // File is being deleted (whole file removal)
     bool is_new = false;      // File is being created (new file)
+    bool is_rename = false;   // Pure rename (no content changes)
 };
 
 
