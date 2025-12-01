@@ -4,12 +4,9 @@
 #include "hdbscan.hpp"
 #include "diffreader.hpp"
 #include "umap.hpp"
-#include <regex>
-#include <set>
 #include <vector>
 #include <fstream>
 #include <filesystem>
-#include <unordered_map>
 
 using namespace std;
 using json = nlohmann::json;
