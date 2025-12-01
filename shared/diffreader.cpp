@@ -195,7 +195,6 @@ string createPatch(DiffChunk chunk, bool include_file_header) {
         else if (line.mode == INSERTION) { new_count++; has_changes = true; }
     }
 
-    // Skip chunks with no actual changes (only context lines)
     if (!has_changes) {
         return "";
     }
