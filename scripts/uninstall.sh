@@ -1,3 +1,39 @@
+            echo "Removing git-$cmd_name..."
+            rm "$BIN_DIR/git-$cmd_name"
+        fi
+    fi
+done
+
+echo ""
+echo "Uninstall complete!"
+echo ""
+echo "Note: The PATH entry for ~/bin was not removed from your shell config."
+echo "You can manually remove it from ~/.zshrc or ~/.bashrc if desired."
+
+            echo "Removing git-$cmd_name..."
+            rm "$BIN_DIR/git-$cmd_name"
+        fi
+    fi
+done
+
+echo ""
+echo "Uninstall complete!"
+echo ""
+echo "Note: The PATH entry for ~/bin was not removed from your shell config."
+echo "You can manually remove it from ~/.zshrc or ~/.bashrc if desired."
+#!/bin/bash
+
+echo "Note: The PATH entry for ~/bin was not removed from your shell config."
+echo "You can manually remove it from ~/.zshrc or ~/.bashrc if desired."
+
+# Custom Git Commands Uninstall Script
+# This script removes all custom git commands installed by install.sh
+
+set -e  # Exit on any error
+
+echo "Uninstalling Custom Git Commands..."
+
+# Get the root directory of the repo
 #!/bin/bash
 
 echo "Note: The PATH entry for ~/bin was not removed from your shell config."
