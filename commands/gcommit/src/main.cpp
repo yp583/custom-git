@@ -186,6 +186,10 @@ int main(int argc, char *argv[]) {
   cout << output.dump() << endl;
   return 0;
 }
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 // Commit mode: load session, cluster with threshold, generate commits
 int run_commit(int verbose, float dist_thresh, const string& session_path) {
   string api_key = get_api_key();
