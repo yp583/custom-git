@@ -133,54 +133,6 @@ int main(int argc, char *argv[]) {
   }
   if (verbose >= 1) cerr << " done" << endl;
 
-<<<<<<< Updated upstream
-  // Compute UMAP for visualization
-  vector<UmapPoint> umap_points;
-  if (embeddings.size() >= 3) {
-    if (verbose >= 1) cerr << "Computing UMAP..." << endl;
-    try {
-      umap_points = compute_umap(embeddings);
-    } catch (const exception& e) {
-      if (verbose >= 1) cerr << "UMAP failed: " << e.what() << endl;
-    }
-  }
-
-  // Save session
-  Session session;
-  session.chunks = all_chunks;
-  session.embeddings = embeddings;
-  session.umap_points = umap_points;
-
-  if (!session.save(session_path)) {
-    cerr << "Error: Failed to save session to " << session_path << endl;
-    return 1;
-  }
-  if (verbose >= 1) cerr << "Session saved to " << session_path << endl;
-
-  // Output visualization data (no commits yet)
-  json output;
-  output["session_path"] = session_path;
-  output["chunk_count"] = all_chunks.size();
-
-  json points_json = json::array();
-  for (size_t i = 0; i < all_chunks.size(); i++) {
-    string preview = combineContent(all_chunks[i]);
-    if (preview.size() > 100) preview = preview.substr(0, 100) + "...";
-
-    points_json.push_back({
-      {"id", i},
-      {"x", i < umap_points.size() ? umap_points[i].x : 0.0},
-      {"y", i < umap_points.size() ? umap_points[i].y : 0.0},
-      {"filepath", all_chunks[i].filepath},
-      {"preview", preview}
-    });
-  }
-  output["points"] = points_json;
-
-  cout << output.dump() << endl;
-  return 0;
-}
-<<<<<<< Updated upstream
 =======
 
 >>>>>>> Stashed changes
