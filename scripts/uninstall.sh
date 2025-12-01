@@ -1,3 +1,16 @@
+#!/bin/bash
+
+echo "Note: The PATH entry for ~/bin was not removed from your shell config."
+echo "You can manually remove it from ~/.zshrc or ~/.bashrc if desired."
+
+# Custom Git Commands Uninstall Script
+# This script removes all custom git commands installed by install.sh
+
+set -e  # Exit on any error
+
+echo "Uninstalling Custom Git Commands..."
+
+# Get the root directory of the repo
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="$HOME/bin"
 
