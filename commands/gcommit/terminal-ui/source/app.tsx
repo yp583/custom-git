@@ -228,18 +228,20 @@ function AppContent({ threshold, verbose }: Props) {
     run();
   }, [phase]);
 
-  // Phase: Restoring stash
+  // Phase: Restoring stash (SUCCESS path)
   useEffect(() => {
     if (phase !== 'restoring') return;
 
     const run = async () => {
       try {
         setStatusMessage('Restoring working tree...');
-        await git.popStash();
+        // SUCCESS: Drop staged stash (it's now committed), pop only unstaged
+        await git.dropStagedStash();
+        await git.popUnstagedStash();
         setPhase('done');
       } catch (err: any) {
         // Non-fatal - stash might not exist, but print the error
-        console.error('Failed to pop stash:', err.message);
+        console.error('Failed to restore stash:', err.message);
         setPhase('done');
       }
     };
@@ -253,8 +255,8 @@ function AppContent({ threshold, verbose }: Props) {
     const run = async () => {
       try {
         setStatusMessage('Cancelling...');
-        await git.deleteStagingBranch();
-        await git.popStash();
+        // CANCEL: Use cleanup which pops BOTH stashes (restore original state)
+        await git.cleanup();
         // Clean up temp files
         const fs = await import('fs/promises');
         await fs.rm('/tmp/patches', { recursive: true, force: true });
