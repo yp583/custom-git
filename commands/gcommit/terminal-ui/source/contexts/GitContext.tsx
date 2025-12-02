@@ -5,13 +5,15 @@ interface GitState {
   git: SimpleGit;
   originalBranch: string;
   stagingBranch: string | null;
-  stashCreated: boolean;
+  unstagedStashCreated: boolean;
+  stagedStashCreated: boolean;
   stagedDiff: string;
 }
 
 interface GitContextValue extends GitState {
   stashChanges: () => Promise<boolean>;
-  popStash: () => Promise<void>;
+  popUnstagedStash: () => Promise<void>;
+  dropStagedStash: () => Promise<void>;
   createStagingBranch: () => Promise<string>;
   deleteStagingBranch: () => Promise<void>;
   mergeStagingBranch: () => Promise<void>;
@@ -44,41 +46,60 @@ export function GitProvider({ children }: GitProviderProps) {
   }, []);
 
   const stashChanges = useCallback(async (): Promise<boolean> => {
-    // Capture staged diff BEFORE stashing (stash clears it)
+    // Capture staged diff BEFORE any stashing
     const diff = await state.git.diff(['--cached']);
     setState(s => ({ ...s, stagedDiff: diff }));
 
     const status = await state.git.status();
 
-    // Check if there are any changes to stash (modified, not staged)
-    const hasChanges = status.modified.length > 0 ||
-                       status.not_added.length > 0 ||
-                       status.deleted.length > 0;
+    // Check for unstaged changes (modified working tree, untracked files)
+    const hasUnstagedChanges = status.modified.length > 0 ||
+                               status.not_added.length > 0 ||
+                               status.deleted.length > 0;
 
-    if (hasChanges) {
-      await state.git.stash(['push', '-u', '-m', 'gcommit-auto-stash']);
-      setState(s => ({ ...s, stashCreated: true }));
-      return true;
+    // Check for staged changes
+    const hasStagedChanges = status.staged.length > 0 ||
+                             status.renamed.length > 0 ||
+                             status.created.length > 0;
+
+    // Step 1: Stash unstaged changes first (keep staged in index)
+    if (hasUnstagedChanges) {
+      await state.git.stash(['push', '-k', '-u', '-m', 'gcommit-unstaged']);
+      setState(s => ({ ...s, unstagedStashCreated: true }));
     }
-    return false;
+
+    // Step 2: Stash staged changes (now working tree = index = staged state)
+    if (hasStagedChanges) {
+      await state.git.stash(['push', '-m', 'gcommit-staged']);
+      setState(s => ({ ...s, stagedStashCreated: true }));
+    }
+
+    return hasUnstagedChanges || hasStagedChanges;
   }, [state.git]);
 
-  const popStash = useCallback(async () => {
-    if (!state.stashCreated) return;
+  const popUnstagedStash = useCallback(async () => {
+    if (!state.unstagedStashCreated) return;
 
     try {
-      await state.git.stash(['pop', '--index']);
+      await state.git.stash(['pop']);
     } catch (err) {
-      // --index can fail with renames; fallback to pop without --index
-      try {
-        await state.git.stash(['pop']);
-      } catch (fallbackErr) {
-        console.error('Failed to pop stash:', fallbackErr);
-      }
+      console.error('Failed to pop unstaged stash:', err);
     }
 
-    setState(s => ({ ...s, stashCreated: false }));
-  }, [state.git, state.stashCreated]);
+    setState(s => ({ ...s, unstagedStashCreated: false }));
+  }, [state.git, state.unstagedStashCreated]);
+
+  const dropStagedStash = useCallback(async () => {
+    if (!state.stagedStashCreated) return;
+
+    try {
+      await state.git.stash(['drop']);
+    } catch (err) {
+      console.error('Failed to drop staged stash:', err);
+    }
+
+    setState(s => ({ ...s, stagedStashCreated: false }));
+  }, [state.git, state.stagedStashCreated]);
 
   const createStagingBranch = useCallback(async (): Promise<string> => {
     const branchName = `gcommit-staging-${Date.now()}`;
@@ -138,19 +159,20 @@ export function GitProvider({ children }: GitProviderProps) {
         // Branch may not exist
       }
     }
-    // Pop stash if we created one
-    if (state.stashCreated) {
-      try {
-        // Clean untracked files that may have been created by failed patches
-        // This prevents "would be overwritten" errors when popping stash
-        await state.git.clean('f', ['-d']);
-      } catch {
-        // Ignore clean errors
-      }
+
+    // Clean untracked files that may have been created by failed patches
+    // This prevents "would be overwritten" errors when popping stash
+    try {
+      await state.git.clean('f', ['-d']);
+    } catch {
+      // Ignore clean errors
+    }
+
+    // Pop staged stash first (it's stash@{0} - most recent)
+    if (state.stagedStashCreated) {
       try {
         await state.git.stash(['pop', '--index']);
       } catch (err) {
-        // --index can fail with renames; fallback to pop without --index
         try {
           await state.git.stash(['pop']);
         } catch {
@@ -158,12 +180,22 @@ export function GitProvider({ children }: GitProviderProps) {
         }
       }
     }
-  }, [state.git, state.stagingBranch, state.originalBranch, state.stashCreated]);
+
+    // Pop unstaged stash second (it's now stash@{0} after first pop)
+    if (state.unstagedStashCreated) {
+      try {
+        await state.git.stash(['pop']);
+      } catch {
+        // Stash may not exist
+      }
+    }
+  }, [state.git, state.stagingBranch, state.originalBranch, state.stagedStashCreated, state.unstagedStashCreated]);
 
   const value: GitContextValue = {
     ...state,
     stashChanges,
-    popStash,
+    popUnstagedStash,
+    dropStagedStash,
     createStagingBranch,
     deleteStagingBranch,
     mergeStagingBranch,
