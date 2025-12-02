@@ -31,10 +31,12 @@ interface GitProviderProps {
 
 export function GitProvider({ children }: GitProviderProps) {
   const [state, setState] = useState<GitState>({
+    //@ts-ignore
     git: simpleGit(),
     originalBranch: '',
     stagingBranch: null,
-    stashCreated: false,
+    unstagedStashCreated: false,
+    stagedStashCreated: false,
     stagedDiff: '',
   });
 
