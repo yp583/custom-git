@@ -416,7 +416,7 @@ function AppContent({ threshold, verbose, dev }: Props) {
 
 export default function App(props: Props) {
   return (
-    <GitProvider>
+    <GitProvider dev={props.dev}>
       <AppContent {...props} />
     </GitProvider>
   );
